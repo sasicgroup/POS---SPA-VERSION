@@ -65,18 +65,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Load Stores based on User Access
                 let validStores: any[] = [];
 
-                // 1. Get Access IDs from Junction Table
-                const { data: accessData } = await supabase
-                    .from('employee_access')
-                    .select('store_id')
-                    .eq('employee_id', currentUser.id);
+                if (currentUser.id !== 'owner-1') {
+                    // 1. Get Access IDs from Junction Table
+                    const { data: accessData } = await supabase
+                        .from('employee_access')
+                        .select('store_id')
+                        .eq('employee_id', currentUser.id);
 
-                const accessIds = accessData ? accessData.map(a => a.store_id) : [];
+                    if (accessData) accessIds = accessData.map(a => a.store_id);
 
-                // 2. Also check if they are "home" based in a store (if we knew it)
-                // Ideally we re-fetch the employee to be safe
-                const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', currentUser.id).single();
-                if (freshEmp?.store_id) accessIds.push(freshEmp.store_id);
+                    // 2. Also check if they are "home" based in a store (if we knew it)
+                    // Ideally we re-fetch the employee to be safe
+                    const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', currentUser.id).single();
+                    if (freshEmp?.store_id) accessIds.push(freshEmp.store_id);
+                } else {
+                    // It is owner-1 (legacy/dev user), so we skip UUID-based lookups which cause 400 Bad Request
+                }
 
                 // Fetch Stores
                 if (accessIds.length > 0) {

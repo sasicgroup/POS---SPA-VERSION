@@ -59,7 +59,7 @@ export const loadSMSConfigFromDB = async (storeId: string) => {
         .from('app_settings')
         .select('sms_config')
         .eq('store_id', storeId)
-        .single();
+        .maybeSingle();
 
     if (data && data.sms_config) {
         smsConfig = { ...smsConfig, ...data.sms_config };

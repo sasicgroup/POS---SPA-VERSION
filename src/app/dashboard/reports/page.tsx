@@ -369,7 +369,7 @@ export default function ReportsPage() {
                         </div>
                         <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full dark:bg-indigo-900/30 dark:text-indigo-400">AI Beta</span>
                     </div>
-                    <div className="h-80 w-full">
+                    <div className="w-full" style={{ height: 320 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={forecastData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -416,7 +416,7 @@ export default function ReportsPage() {
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white">Peak Sales Hours</h3>
                         <p className="text-sm text-slate-500">Sales volume distribution by hour of the day.</p>
                     </div>
-                    <div className="h-80 w-full">
+                    <div className="w-full" style={{ height: 320 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={hourlySalesData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -438,7 +438,7 @@ export default function ReportsPage() {
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white">Weekly Revenue Trend</h3>
                         <p className="text-sm text-slate-500">Revenue performance over the last 7 days.</p>
                     </div>
-                    <div className="h-80 w-full">
+                    <div className="w-full" style={{ height: 320 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={weeklySalesData}>
                                 <defs>
@@ -468,7 +468,7 @@ export default function ReportsPage() {
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white">Category Performance</h3>
                         <p className="text-sm text-slate-500">Sales distribution by category.</p>
                     </div>
-                    <div className="h-64 w-full">
+                    <div className="w-full" style={{ height: 256 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
