@@ -20,10 +20,13 @@ export interface Store {
 
 // Define User Type
 export interface User {
-    id: number | string;
+    id: any;
     name: string;
+    email?: string;
+    phone?: string;
     role: 'owner' | 'manager' | 'associate';
     pin: string;
+    avatar?: string;
 }
 
 interface AuthContextType {
@@ -31,11 +34,15 @@ interface AuthContextType {
     activeStore: Store | null;
     stores: Store[];
     isLoading: boolean;
+    teamMembers: User[];
     login: (pin: string) => Promise<boolean>;
     logout: () => void;
     switchStore: (storeId: any) => void;
     updateStoreSettings: (settings: Partial<Store>) => void;
     createStore: (name: string, location: string) => Promise<void>;
+    addTeamMember: (member: Omit<User, 'id'>) => Promise<void>;
+    updateTeamMember: (id: any, updates: Partial<User>) => Promise<void>;
+    removeTeamMember: (id: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

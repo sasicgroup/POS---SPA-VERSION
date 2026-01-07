@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export default function SettingsPage() {
-    const { activeStore, user, updateStoreSettings } = useAuth();
+    const { activeStore, user, updateStoreSettings, teamMembers, addTeamMember, updateTeamMember, removeTeamMember } = useAuth();
     const {
         businessTypes,
         activeCategories,
@@ -36,6 +36,10 @@ export default function SettingsPage() {
     const [storeName, setStoreName] = useState('');
     const [storeLocation, setStoreLocation] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+
+    // Team Management State
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [editingMember, setEditingMember] = useState<any>(null);
 
     useEffect(() => {
         setSmsConfig(getSMSConfig());
@@ -243,24 +247,137 @@ export default function SettingsPage() {
                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Team Members</h2>
-                                <button className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">+ Invite Member</button>
+                                <button
+                                    onClick={() => setShowInviteModal(true)}
+                                    className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 font-medium transition-colors"
+                                >
+                                    + Invite Member
+                                </button>
                             </div>
 
                             <div className="space-y-4">
-                                {[user, { name: 'Sarah Miller', email: 'sarah@store.com', role: 'manager', avatar: 'https://ui-avatars.com/api/?name=Sarah+Miller&background=random' }].map((member: any, i) => (
-                                    <div key={i} className="flex items-center justify-between p-4 rounded-lg border border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
+                                {teamMembers.map((member: any) => (
+                                    <div key={member.id} className="flex items-center justify-between p-4 rounded-lg border border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
                                         <div className="flex items-center gap-4">
-                                            <img src={member.avatar} alt={member.name} className="h-10 w-10 rounded-full" />
+                                            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold overflow-hidden">
+                                                {member.avatar ? <img src={member.avatar} alt={member.name} className="h-full w-full object-cover" /> : member.name.charAt(0)}
+                                            </div>
                                             <div>
-                                                <p className="text-sm font-medium text-slate-900 dark:text-white">{member.name} {member.id === user.id && '(You)'}</p>
-                                                <p className="text-xs text-slate-500">{member.email}</p>
+                                                <p className="text-sm font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                                                    {member.name}
+                                                    {member.id === user.id && <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full">You</span>}
+                                                </p>
+                                                <p className="text-xs text-slate-500">{member.email || 'No email'}</p>
                                             </div>
                                         </div>
-                                        <span className="capitalize px-3 py-1 rounded-full text-xs font-medium bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
-                                            {member.role}
-                                        </span>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`capitalize px-3 py-1 rounded-full text-xs font-medium 
+                                                ${member.role === 'owner' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                                                    member.role === 'manager' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                                                        'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'}`}>
+                                                {member.role}
+                                            </span>
+
+                                            {member.id !== user.id && (
+                                                <div className="flex items-center gap-1">
+                                                    {/* Edit Button */}
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingMember(member);
+                                                            setShowInviteModal(true);
+                                                        }}
+                                                        className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" title="Edit Role">
+                                                        <Users className="h-4 w-4" />
+                                                    </button>
+                                                    {/* Delete Button */}
+                                                    <button
+                                                        onClick={() => {
+                                                            if (confirm('Are you sure you want to remove this member?')) {
+                                                                removeTeamMember(member.id);
+                                                            }
+                                                        }}
+                                                        className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Remove Member">
+                                                        <X className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
+                                {teamMembers.length === 0 && (
+                                    <div className="text-center py-8 text-slate-500">
+                                        No team members found. Invite someone to get started!
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Invite/Edit Modal */}
+                    {showInviteModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+                            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                                        {editingMember ? 'Edit Member' : 'Invite New Member'}
+                                    </h3>
+                                    <button onClick={() => { setShowInviteModal(false); setEditingMember(null); }} className="text-slate-400 hover:text-slate-600">
+                                        <X className="h-5 w-5" />
+                                    </button>
+                                </div>
+                                <form onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.currentTarget);
+                                    const data = {
+                                        name: formData.get('name') as string,
+                                        email: formData.get('email') as string,
+                                        pin: formData.get('pin') as string,
+                                        role: formData.get('role') as any
+                                    };
+
+                                    try {
+                                        if (editingMember) {
+                                            await updateTeamMember(editingMember.id, data);
+                                        } else {
+                                            await addTeamMember(data);
+                                        }
+                                        setShowInviteModal(false);
+                                        setEditingMember(null);
+                                    } catch (err) {
+                                        alert('Failed to save member. Please try again.');
+                                    }
+                                }}>
+                                    <div className="p-6 space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
+                                            <input name="name" required defaultValue={editingMember?.name} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="e.g. John Doe" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
+                                            <input name="email" type="email" required defaultValue={editingMember?.email} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="john@example.com" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Role</label>
+                                                <select name="role" required defaultValue={editingMember?.role || 'associate'} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                                                    <option value="associate">Associate</option>
+                                                    <option value="manager">Manager</option>
+                                                    <option value="owner">Owner</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Access PIN</label>
+                                                <input name="pin" type="text" pattern="[0-9]{4,6}" required defaultValue={editingMember?.pin} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="e.g. 1234" title="4-6 digit PIN" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 rounded-b-2xl">
+                                        <button type="button" onClick={() => { setShowInviteModal(false); setEditingMember(null); }} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">Cancel</button>
+                                        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-lg shadow-indigo-500/30 transition-all transform active:scale-95">
+                                            {editingMember ? 'Save Changes' : 'Send Invitation'}
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     )}
