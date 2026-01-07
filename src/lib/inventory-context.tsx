@@ -26,6 +26,7 @@ interface InventoryContextType {
     setActiveCategories: (categories: string[]) => void;
     businessTypes: string[];
     availableBusinessTypes: string[];
+    addCustomBusinessType: (type: string) => void;
     toggleBusinessType: (type: string) => void;
     customCategories: string[];
     addCustomCategory: (category: string) => void;
@@ -48,9 +49,15 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     // UI states
     const [businessTypes, setBusinessTypes] = useState<string[]>([]);
     const [customCategories, setCustomCategories] = useState<string[]>([]);
-    const availableBusinessTypes = [
+    const [availableBusinessTypes, setAvailableBusinessTypes] = useState<string[]>([
         "Retail Store", "Pharmacy", "Restaurant", "Electronics", "Grocery", "Fashion", "Other"
-    ];
+    ]);
+
+    const addCustomBusinessType = (type: string) => {
+        if (!availableBusinessTypes.includes(type)) {
+            setAvailableBusinessTypes([...availableBusinessTypes, type]);
+        }
+    };
 
     useEffect(() => {
         if (activeStore?.id) {
@@ -277,6 +284,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
             setActiveCategories,
             businessTypes,
             availableBusinessTypes,
+            addCustomBusinessType,
             toggleBusinessType,
             customCategories,
             addCustomCategory,

@@ -27,7 +27,8 @@ export default function SettingsPage() {
         toggleBusinessType,
         addCustomCategory,
         removeCustomCategory,
-        availableBusinessTypes
+        availableBusinessTypes,
+        addCustomBusinessType
     } = useInventory();
 
     const [activeTab, setActiveTab] = useState('general');
