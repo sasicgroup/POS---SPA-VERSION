@@ -15,7 +15,7 @@ import {
     Search,
     Bell
 } from 'lucide-react';
-import { sendNotification, getSMSConfig, updateSMSConfig, type SMSConfig, getSMSBalance } from '@/lib/sms';
+import { sendNotification, getSMSConfig, updateSMSConfig, type SMSConfig, getSMSBalance, sendDirectMessage } from '@/lib/sms';
 import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
 
@@ -34,6 +34,7 @@ export default function CommunicationPage() {
     // ... earlier code ...
     const [balance, setBalance] = useState<number>(0);
     const [recipientCount, setRecipientCount] = useState(0);
+    const [isSending, setIsSending] = useState(false);
 
     useEffect(() => {
         const initData = async () => {
@@ -91,20 +92,53 @@ export default function CommunicationPage() {
         setMessageContent(prev => prev + ' ' + ph + ' ');
     };
 
-    const handleSend = () => {
-        // In a real app, this would iterate over customers and send
-        console.log(`Sending ${selectedChannel} to ${recipientType} recipients: ${messageContent}`);
+    const handleSend = async () => {
+        if (!messageContent.trim()) return;
+        setIsSending(true);
 
-        // Simulate sending
-        sendNotification('sale', {
-            // Mock data structure appropriate for the bulk sender
-            id: 'BULK-' + Date.now(),
-            amount: 0,
-            customerPhone: 'BULK'
-        });
+        const channels = selectedChannel === 'sms' ? ['sms'] : ['whatsapp'];
+        let count = 0;
 
-        alert(`Bulk ${selectedChannel.toUpperCase()} Sent Successfully!`);
-        setMessageContent('');
+        try {
+            if (recipientType === 'manual') {
+                const manualRecipients = document.querySelector('textarea[placeholder="Enter phone numbers separated by commas..."]') as HTMLTextAreaElement;
+                if (manualRecipients && manualRecipients.value) {
+                    const phones = manualRecipients.value.split(',').map(p => p.trim()).filter(p => p.length > 0);
+                    for (const phone of phones) {
+                        await sendDirectMessage(phone, messageContent, channels as any);
+                        count++;
+                    }
+                }
+            } else if (recipientType === 'all' || recipientType === 'group') {
+                // Fetch customers (Limit to 50 for safety in this client-side demo)
+                const { data: customers } = await supabase
+                    .from('customers')
+                    .select('phone, name')
+                    .limit(50);
+
+                if (customers) {
+                    for (const cust of customers) {
+                        if (cust.phone) {
+                            // Basic placeholder replacement
+                            let finalMsg = messageContent.replace('{Name}', cust.name).replace('{StoreName}', activeStore.name);
+                            // Clean other unused
+                            finalMsg = finalMsg.replace('{Points}', '0').replace('{LastVisit}', 'N/A');
+
+                            await sendDirectMessage(cust.phone, finalMsg, channels as any);
+                            count++;
+                        }
+                    }
+                }
+            }
+
+            alert(`Successfully sent ${selectedChannel.toUpperCase()} to ${count} recipients.`);
+            setMessageContent('');
+        } catch (e) {
+            console.error("Sending failed", e);
+            alert("Failed to send broadcast. Check console.");
+        } finally {
+            setIsSending(false);
+        }
     };
 
     return (
@@ -286,11 +320,11 @@ export default function CommunicationPage() {
                                     </button>
                                     <button
                                         onClick={handleSend}
-                                        disabled={!messageContent.trim()}
+                                        disabled={!messageContent.trim() || isSending}
                                         className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 disabled:shadow-none"
                                     >
-                                        <Send className="h-4 w-4" />
-                                        Send Broadcast
+                                        <Send className={`h-4 w-4 ${isSending ? 'animate-spin' : ''}`} />
+                                        {isSending ? 'Sending...' : 'Send Broadcast'}
                                     </button>
                                 </div>
                             </div>

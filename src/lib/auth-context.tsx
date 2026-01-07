@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabase';
-import { loadSMSConfigFromDB } from '@/lib/sms';
+import { loadSMSConfigFromDB, sendDirectMessage } from '@/lib/sms';
 
 // Define Store Type
 export interface Store {
@@ -22,11 +22,17 @@ export interface Store {
 export interface User {
     id: any;
     name: string;
-    email?: string;
+    username?: string;
     phone?: string;
     role: 'owner' | 'manager' | 'associate';
     pin: string;
     avatar?: string;
+    otp_enabled?: boolean;
+    is_locked?: boolean;
+    failed_attempts?: number;
+    shift_start?: string;
+    shift_end?: string;
+    work_days?: string[];
 }
 
 interface AuthContextType {
@@ -35,7 +41,10 @@ interface AuthContextType {
     stores: Store[];
     isLoading: boolean;
     teamMembers: User[];
-    login: (pin: string) => Promise<boolean>;
+    login: (username: string, pin: string) => Promise<{ success: boolean; status: 'SUCCESS' | 'OTP_REQUIRED' | 'LOCKED' | 'INVALID_CREDENTIALS' | 'OUTSIDE_SHIFT' | 'ERROR'; message?: string; tempUser?: User }>;
+    verifyOTP: (username: string, code: string) => Promise<boolean>;
+    resendOTP: (username: string) => Promise<boolean>;
+    unlockAccount: (userId: any) => Promise<boolean>;
     logout: () => void;
     switchStore: (storeId: any) => void;
     updateStoreSettings: (settings: Partial<Store>) => void;
@@ -126,84 +135,224 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         initAuth();
     }, []);
 
-    const login = async (pin: string): Promise<boolean> => {
+    const finalizeLogin = async (loggedUser: User): Promise<{ success: boolean; status: 'SUCCESS'; tempUser: User }> => {
+        // Load Stores Logic (Shared from old login)
+        let validStores: any[] = [];
+        let accessIds: any[] = [];
+
+        if (loggedUser.id !== 'owner-1') {
+            const { data: accessData } = await supabase.from('employee_access').select('store_id').eq('employee_id', loggedUser.id);
+            if (accessData) accessIds = accessData.map(a => a.store_id);
+
+            const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', loggedUser.id).single();
+            if (freshEmp?.store_id) accessIds.push(freshEmp.store_id);
+        }
+
+        if (accessIds.length > 0) {
+            const { data: userStores } = await supabase.from('stores').select('*').in('id', accessIds);
+            if (userStores) validStores = userStores;
+        } else if (loggedUser.id === 'owner-1') {
+            const { data: all } = await supabase.from('stores').select('*');
+            if (all) validStores = all;
+        }
+
+        if (validStores.length > 0) {
+            const mappedStores = validStores.map((s: any) => ({
+                ...s,
+                taxSettings: s.tax_settings || { enabled: true, type: 'percentage', value: 12.5 }
+            }));
+            setStores(mappedStores);
+            setActiveStore(mappedStores[0]);
+            localStorage.setItem('sms_active_store_id', mappedStores[0].id);
+            if (mappedStores[0].id) await loadSMSConfigFromDB(mappedStores[0].id);
+        }
+
+        setUser(loggedUser);
+        localStorage.setItem('sms_user', JSON.stringify(loggedUser));
+        return { success: true, status: 'SUCCESS', tempUser: loggedUser };
+    };
+
+    const login = async (username: string, pin: string): Promise<{ success: boolean; status: 'SUCCESS' | 'OTP_REQUIRED' | 'LOCKED' | 'INVALID_CREDENTIALS' | 'OUTSIDE_SHIFT' | 'ERROR'; message?: string; tempUser?: User }> => {
         setIsLoading(true);
         try {
-            // 1. Find Employee by PIN
-            const { data: employees, error } = await supabase
-                .from('employees')
-                .select('*')
-                .eq('pin', pin)
-                .limit(1);
+            // 1. Find Employee by Username
+            // Check 'username' OR 'name' (legacy fallback)
+            let query = supabase.from('employees').select('*').eq('username', username).limit(1);
+            let { data: employees, error } = await query;
+
+            // Fallback for demo owner if DB empty or not found via username yet
+            if ((!employees || employees.length === 0) && username === 'admin' && pin === '1234') {
+                const fallbackOwner: User = { id: 'owner-1', name: 'Store Owner', username: 'admin', role: 'owner', pin: '1234', otp_enabled: false };
+                return await finalizeLogin(fallbackOwner);
+            }
 
             if (error || !employees || employees.length === 0) {
-                // Fallback for hardcoded owner if DB empty? No, let's rely on DB.
-                if (pin === '1234') {
-                    // Keep simpler mock fallback just in case DB is broken during demo
-                    const fallbackOwner: User = { id: 'owner-1', name: 'Store Owner', role: 'owner', pin: '1234' };
-                    setUser(fallbackOwner);
-                    localStorage.setItem('sms_user', JSON.stringify(fallbackOwner));
+                // Try searching by name just in case (optional, remove if strict)
+                const { data: byName } = await supabase.from('employees').select('*').eq('name', username).limit(1);
+                if (byName && byName.length > 0) employees = byName;
+                else return { success: false, status: 'INVALID_CREDENTIALS', message: 'User not found' };
+            }
 
-                    // NEW: Ensure we try to find stores for this hardcoded owner too if DB has them
-                    const { data: all } = await supabase.from('stores').select('*');
-                    if (all && all.length > 0) {
-                        const mapped = all.map((s: any) => ({
-                            ...s,
-                            taxSettings: s.tax_settings || { enabled: true, type: 'percentage', value: 12.5 }
-                        }));
-                        setStores(mapped);
-                        setActiveStore(mapped[0]);
-                        localStorage.setItem('sms_active_store_id', mapped[0].id);
-                    }
-                    return true;
+            const employee = employees![0];
+
+            if (employee.is_locked) {
+                return { success: false, status: 'LOCKED', message: 'Account is locked due to too many failed attempts. Contact admin.' };
+            }
+
+            // 2. Check PIN
+            if (employee.pin !== pin) {
+                // Increment failed attempts
+                const attempts = (employee.failed_attempts || 0) + 1;
+                const update: any = { failed_attempts: attempts };
+                if (attempts >= 3) {
+                    update.is_locked = true;
                 }
-                return false;
+                await supabase.from('employees').update(update).eq('id', employee.id);
+
+                if (update.is_locked) {
+                    return { success: false, status: 'LOCKED', message: 'Account has been locked.' };
+                } else {
+                    return { success: false, status: 'INVALID_CREDENTIALS', message: `Invalid PIN. ${3 - attempts} attempts remaining.` };
+                }
             }
 
-            const employee = employees[0];
-
-            // 2. Find Accessible Stores
-            // We look for stores in employee_access OR the store_id on the employee record (home store)
-            const { data: accessData } = await supabase
-                .from('employee_access')
-                .select('store_id')
-                .eq('employee_id', employee.id);
-
-            const accessStoreIds = accessData ? accessData.map(a => a.store_id) : [];
-            if (employee.store_id) accessStoreIds.push(employee.store_id); // Include home store
-
-            // 3. Fetch Store Details
-            const { data: userStores } = await supabase
-                .from('stores')
-                .select('*')
-                .in('id', accessStoreIds);
-
-            if (userStores && userStores.length > 0) {
-                const mappedStores = userStores.map((s: any) => ({
-                    ...s,
-                    taxSettings: s.tax_settings || { enabled: true, type: 'percentage', value: 12.5 }
-                }));
-
-                setStores(mappedStores);
-                // Default to first one or stay on current if valid
-                setActiveStore(mappedStores[0]);
-                localStorage.setItem('sms_active_store_id', mappedStores[0].id);
-                if (mappedStores[0].id) loadSMSConfigFromDB(mappedStores[0].id);
+            // 3. Reset attempts on success
+            if (employee.failed_attempts > 0) {
+                await supabase.from('employees').update({ failed_attempts: 0 }).eq('id', employee.id);
             }
 
-            const newUser: User = {
+            // --- SHIFT ENFORCEMENT ---
+            // Only apply to non-owners (or strict setting?) - For now, owners bypass
+            if (employee.role !== 'owner' && employee.shift_start && employee.shift_end && employee.work_days && employee.work_days.length > 0) {
+                const now = new Date();
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const currentDay = days[now.getDay()];
+
+                // 1. Check Day
+                if (!employee.work_days.includes(currentDay)) {
+                    return { success: false, status: 'OUTSIDE_SHIFT', message: `You are not scheduled to work on ${currentDay}.` };
+                }
+
+                // 2. Check Time
+                const currentTime = now.toTimeString().slice(0, 5); // "HH:MM"
+                // Assuming simple same-day shift. IDL (International Date Line) or overnight shifts might need more logic, 
+                // but keeping it simple for now as requested.
+                // Assuming stored format is HH:MM or HH:MM:SS
+                const start = employee.shift_start.slice(0, 5);
+                const end = employee.shift_end.slice(0, 5);
+
+                if (currentTime < start || currentTime > end) {
+                    return { success: false, status: 'OUTSIDE_SHIFT', message: `Shift hours are ${start} - ${end}. Access denied.` };
+                }
+            }
+            // -------------------------
+
+            const userObj: User = {
                 id: employee.id,
                 name: employee.name,
+                username: employee.username,
                 role: employee.role as any,
-                pin: employee.pin
+                pin: employee.pin,
+                phone: employee.phone,
+                otp_enabled: employee.otp_enabled
             };
-            setUser(newUser);
-            localStorage.setItem('sms_user', JSON.stringify(newUser));
-            return true;
+
+            // 4. Check OTP
+            if (employee.otp_enabled && employee.phone) {
+                const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit OTP
+                const expiry = new Date(Date.now() + 5 * 60000); // 5 mins
+
+                // Save OTP to DB
+                await supabase.from('employees').update({
+                    otp_code: code,
+                    otp_expiry: expiry.toISOString()
+                }).eq('id', employee.id);
+
+                // Send OTP
+                // Need store context for SMS config? We can fetch it based on user's store
+                const { data: empStore } = await supabase.from('employee_access').select('store_id').eq('employee_id', employee.id).limit(1).maybeSingle();
+                const storeId = empStore?.store_id || employee.store_id;
+                if (storeId) {
+                    await loadSMSConfigFromDB(storeId);
+                    await sendDirectMessage(employee.phone, `Your OTP is ${code}. Valid for 5 minutes.`);
+                }
+
+                return { success: true, status: 'OTP_REQUIRED', tempUser: userObj };
+            }
+
+            return await finalizeLogin(userObj);
+
+        } catch (e: any) {
+            console.error("Login unexpected error", e);
+            return { success: false, status: 'ERROR', message: e.message };
         } finally {
             setIsLoading(false);
         }
     };
+
+    const verifyOTP = async (username: string, code: string): Promise<boolean> => {
+        // 1. Get user (re-fetch to be safe)
+        const { data: employees } = await supabase.from('employees').select('*').eq('username', username).single();
+        if (!employees) return false;
+
+        // 2. Validate Code & Expiry
+        if (employees.otp_code === code) {
+            const now = new Date();
+            const exp = new Date(employees.otp_expiry);
+            if (now <= exp) {
+                // Success
+                // Clear OTP fields
+                await supabase.from('employees').update({ otp_code: null, otp_expiry: null }).eq('id', employees.id);
+
+                const userObj: User = {
+                    id: employees.id,
+                    name: employees.name,
+                    username: employees.username,
+                    role: employees.role as any,
+                    pin: employees.pin,
+                    phone: employees.phone,
+                    otp_enabled: employees.otp_enabled
+                };
+                await finalizeLogin(userObj);
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const resendOTP = async (username: string): Promise<boolean> => {
+        const { data: employee } = await supabase.from('employees').select('*').eq('username', username).single();
+        if (!employee || !employee.phone) return false;
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = new Date(Date.now() + 5 * 60000);
+
+        await supabase.from('employees').update({
+            otp_code: code,
+            otp_expiry: expiry.toISOString()
+        }).eq('id', employee.id);
+
+        await sendDirectMessage(employee.phone, `Your new OTP is ${code}.`);
+        return true;
+    };
+
+    const unlockAccount = async (userId: any): Promise<boolean> => {
+        // Check permission (User context must be set)
+        if (!user) return false;
+
+        // Simple hierarchy check: Owner > Manager > Associate
+        // Implemented by UI logic mostly, but here we just process the update
+        // Real implementation should query role of target vs currentUser
+
+        const { error } = await supabase.from('employees').update({
+            is_locked: false,
+            failed_attempts: 0
+        }).eq('id', userId);
+
+        return !error;
+    };
+
+
 
     const logout = () => {
         setUser(null);
@@ -252,11 +401,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             mergedMembers = [...mergedMembers, ...directEmployees.map((e: any) => ({
                 id: e.id,
                 name: e.name,
-                email: e.email,
+                username: e.username,
                 phone: e.phone,
                 role: e.role as any,
                 pin: e.pin,
-                avatar: e.avatar_url
+                avatar: e.avatar_url,
+                otp_enabled: e.otp_enabled,
+                is_locked: e.is_locked,
+                failed_attempts: e.failed_attempts,
+                shift_start: e.shift_start,
+                shift_end: e.shift_end,
+                work_days: e.work_days
             }))];
         }
 
@@ -264,11 +419,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const mappedAccess = accessEmployees.map((a: any) => ({
                 id: a.employees.id,
                 name: a.employees.name,
-                email: a.employees.email,
+                username: a.employees.username,
                 phone: a.employees.phone,
                 role: a.role as any, // Override role with store-specific role
                 pin: a.employees.pin,
-                avatar: a.employees.avatar_url
+                avatar: a.employees.avatar_url,
+                otp_enabled: a.employees.otp_enabled,
+                is_locked: a.employees.is_locked,
+                failed_attempts: a.employees.failed_attempts,
+                shift_start: a.employees.shift_start,
+                shift_end: a.employees.shift_end,
+                work_days: a.employees.work_days
             }));
 
             // Merge avoiding duplicates (Access table usually overrides)
@@ -287,11 +448,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // 1. Create in 'employees' table
         const { data: newEmp, error: createError } = await supabase.from('employees').insert({
             name: member.name,
-            email: member.email,
+            username: member.username,
             phone: member.phone,
             pin: member.pin,
             role: member.role, // Default role
-            store_id: activeStore.id // Set home store
+            store_id: activeStore.id, // Set home store
+            otp_enabled: member.otp_enabled !== undefined ? member.otp_enabled : true, // Default true
+            shift_start: member.shift_start,
+            shift_end: member.shift_end,
+            work_days: member.work_days
         }).select().single();
 
         if (createError) throw createError;
@@ -311,11 +476,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!activeStore?.id) return;
 
         // Update basic info
-        if (updates.name || updates.email || updates.pin) {
+        if (updates.name || updates.pin || updates.username || updates.phone || updates.otp_enabled !== undefined || updates.shift_start || updates.shift_end || updates.work_days) {
             await supabase.from('employees').update({
                 name: updates.name,
-                email: updates.email,
-                pin: updates.pin
+                username: updates.username,
+                phone: updates.phone,
+                pin: updates.pin,
+                otp_enabled: updates.otp_enabled,
+                shift_start: updates.shift_start,
+                shift_end: updates.shift_end,
+                work_days: updates.work_days
             }).eq('id', id);
         }
 
@@ -393,7 +563,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             createStore,
             addTeamMember,
             updateTeamMember,
-            removeTeamMember
+            removeTeamMember,
+            verifyOTP,
+            resendOTP,
+            unlockAccount
         }}>
             {children}
         </AuthContext.Provider>

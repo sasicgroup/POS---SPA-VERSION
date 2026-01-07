@@ -19,7 +19,6 @@ export interface SMSConfig {
     notifications: {
         owner: {
             sms: boolean;
-            email: boolean;
             whatsapp: boolean;
         };
         customer: {
@@ -45,7 +44,7 @@ let smsConfig: SMSConfig = {
     mnotify: { apiKey: '', senderId: '' },
     meta: { accessToken: '', phoneNumberId: '', businessAccountId: '' },
     notifications: {
-        owner: { sms: true, email: true, whatsapp: false },
+        owner: { sms: true, whatsapp: false },
         customer: { sms: true, whatsapp: false }
     },
     templates: {
@@ -224,28 +223,28 @@ export const sendNotification = async (type: 'sale' | 'welcome', data: any) => {
     }
 
     if (phone && message) {
-        // Send SMS if enabled
-        if (config.notifications.customer.sms) {
-            console.log(`[SMS Module] Sending SMS to ${phone}: "${message}"`);
-            if (config.provider === 'hubtel') {
-                await sendHubtelSMS(config, phone, message);
-            } else if (config.provider === 'mnotify') {
-                await sendMNotifySMS(config, phone, message);
-            }
-        }
-
-        // Send WhatsApp if enabled
-        if (config.notifications.customer.whatsapp) {
-            console.log(`[SMS Module] Sending WhatsApp to ${phone}: "${message}"`);
-            if (config.meta?.accessToken) {
-                await sendMetaWhatsApp(config, phone, message);
-            } else {
-                console.warn('[SMS Module] WhatsApp enabled but Meta credentials missing');
-            }
-        }
+        await sendDirectMessage(phone, message);
     }
 
     return true;
+};
+
+export const sendDirectMessage = async (phone: string, message: string, channels: ('sms' | 'whatsapp')[] = ['sms', 'whatsapp']) => {
+    const config = getSMSConfig();
+
+    // Send SMS
+    if (channels.includes('sms')) {
+        if (config.provider === 'hubtel') {
+            await sendHubtelSMS(config, phone, message);
+        } else if (config.provider === 'mnotify') {
+            await sendMNotifySMS(config, phone, message);
+        }
+    }
+
+    // Send WhatsApp
+    if (channels.includes('whatsapp') && config.meta?.accessToken) {
+        await sendMetaWhatsApp(config, phone, message);
+    }
 };
 
 export const getSMSBalance = async (): Promise<number> => {

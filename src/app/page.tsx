@@ -6,28 +6,83 @@ import { Store, Lock, ArrowRight, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-    const { login } = useAuth();
+    const { login, verifyOTP, resendOTP } = useAuth();
     const router = useRouter();
+
+    // Form State
+    const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
+    const [username, setUsername] = useState('');
     const [pin, setPin] = useState('');
+    const [otp, setOtp] = useState('');
+
+    // UI State
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [resendCooldown, setResendCooldown] = useState(0);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleCredentialsSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
         try {
-            const success = await login(pin);
-            if (success) {
-                router.push('/dashboard');
+            const result = await login(username, pin);
+
+            if (result.success) {
+                if (result.status === 'OTP_REQUIRED') {
+                    setStep('otp');
+                } else {
+                    router.push('/dashboard');
+                }
             } else {
-                setError('Invalid PIN. Please try again.');
-                setLoading(false);
+                setError(result.message || 'Login failed');
             }
         } catch (err) {
             console.error(err);
             setError('System error during login.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleOtpSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        try {
+            const success = await verifyOTP(username, otp);
+            if (success) {
+                router.push('/dashboard');
+            } else {
+                setError('Invalid or expired OTP code.');
+                setLoading(false);
+            }
+        } catch (err) {
+            setError('Verification failed.');
+            setLoading(false);
+        }
+    };
+
+    const handleResendOTP = async () => {
+        if (resendCooldown > 0) return;
+        setLoading(true);
+        try {
+            await resendOTP(username);
+            setResendCooldown(30);
+            const interval = setInterval(() => {
+                setResendCooldown(prev => {
+                    if (prev <= 1) {
+                        clearInterval(interval);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            alert('New code sent!');
+        } catch (e) {
+            setError('Failed to resend OTP.');
+        } finally {
             setLoading(false);
         }
     };
@@ -40,61 +95,120 @@ export default function LoginPage() {
                 <div className="p-8 text-white">
                     <div className="mb-6 flex justify-center">
                         <div className="rounded-full bg-white/20 p-4 shadow-lg ring-1 ring-white/30">
-                            <Store className="h-10 w-10 text-white" />
+                            {step === 'otp' ? <Lock className="h-10 w-10 text-white" /> : <Store className="h-10 w-10 text-white" />}
                         </div>
                     </div>
 
-                    <h2 className="mb-2 text-center text-3xl font-bold tracking-tight">Store Access</h2>
-                    <p className="mb-8 text-center text-indigo-100">Enter your PIN to continue</p>
+                    <h2 className="mb-2 text-center text-3xl font-bold tracking-tight">{step === 'otp' ? 'Security Check' : 'Store Access'}</h2>
+                    <p className="mb-8 text-center text-indigo-100">{step === 'otp' ? 'Enter the code sent to your phone' : 'Enter your credentials to continue'}</p>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div>
-                            <label className="mb-1 block text-sm font-medium text-indigo-100 text-center">Security PIN</label>
-                            <div className="relative flex justify-center">
+                    {step === 'credentials' ? (
+                        <form onSubmit={handleCredentialsSubmit} className="space-y-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-indigo-100">Username</label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-indigo-200" />
+                                        <input
+                                            type="text"
+                                            value={username}
+                                            onChange={(e) => {
+                                                setUsername(e.target.value);
+                                                setError('');
+                                            }}
+                                            className="block w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-white placeholder-indigo-200 shadow-sm transition-all focus:border-indigo-300 focus:bg-white/10 focus:ring focus:ring-indigo-300/20 outline-none"
+                                            placeholder="Enter username"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-indigo-100">Security PIN</label>
+                                    <input
+                                        type="password"
+                                        value={pin}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                            setPin(val);
+                                            setError('');
+                                        }}
+                                        className="block w-full text-center text-2xl tracking-[0.5em] rounded-xl border border-white/10 bg-white/5 p-3 text-white placeholder-indigo-200 shadow-sm transition-all focus:border-indigo-300 focus:bg-white/10 focus:ring focus:ring-indigo-300/20 outline-none font-mono"
+                                        placeholder="••••"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            {error && (
+                                <p className="text-center text-sm text-pink-300 font-medium animate-pulse bg-pink-500/20 p-2 rounded-lg border border-pink-500/30">{error}</p>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={loading || pin.length < 4 || !username}
+                                className="group relative flex w-full items-center justify-center overflow-hidden rounded-lg bg-white p-3 font-semibold text-indigo-600 shadow-lg transition-all hover:bg-indigo-50 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                                {loading ? 'Verifying...' : (
+                                    <span className="flex items-center gap-2">
+                                        Login <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                                    </span>
+                                )}
+                            </button>
+                        </form>
+                    ) : (
+                        <form onSubmit={handleOtpSubmit} className="space-y-6">
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-indigo-100 text-center">One-Time Password</label>
                                 <input
-                                    type="password"
-                                    value={pin}
+                                    type="text"
+                                    value={otp}
                                     onChange={(e) => {
-                                        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-                                        setPin(val);
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                                        setOtp(val);
                                         setError('');
                                     }}
-                                    className="block w-40 text-center text-3xl tracking-[0.5em] rounded-xl border border-white/10 bg-white/5 p-3 text-white placeholder-indigo-200 shadow-sm transition-all focus:border-indigo-300 focus:bg-white/10 focus:ring focus:ring-indigo-300/20 outline-none font-mono"
-                                    placeholder="••••"
+                                    className="block w-full text-center text-3xl tracking-[0.5em] rounded-xl border border-white/10 bg-white/5 p-3 text-white placeholder-indigo-200 shadow-sm transition-all focus:border-indigo-300 focus:bg-white/10 focus:ring focus:ring-indigo-300/20 outline-none font-mono"
+                                    placeholder="••••••"
                                     autoFocus
                                     required
                                 />
+                                {error && (
+                                    <p className="mt-2 text-center text-sm text-pink-300 font-medium animate-pulse">{error}</p>
+                                )}
                             </div>
-                            {error && (
-                                <p className="mt-2 text-center text-sm text-pink-300 font-medium animate-pulse">{error}</p>
-                            )}
-                        </div>
 
-                        <button
-                            type="submit"
-                            disabled={loading || pin.length < 4}
-                            className="group relative flex w-full items-center justify-center overflow-hidden rounded-lg bg-white p-3 font-semibold text-indigo-600 shadow-lg transition-all hover:bg-indigo-50 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                            {loading ? (
-                                <span className="flex items-center gap-2">
-                                    <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Verifying...
-                                </span>
-                            ) : (
-                                <span className="flex items-center gap-2">
-                                    Login <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                                </span>
-                            )}
-                        </button>
-                    </form>
+                            <button
+                                type="submit"
+                                disabled={loading || otp.length < 6}
+                                className="w-full rounded-lg bg-white p-3 font-semibold text-indigo-600 shadow-lg transition-all hover:bg-indigo-50 active:scale-[0.98] disabled:opacity-70"
+                            >
+                                {loading ? 'Verifying...' : 'Verify Code'}
+                            </button>
+
+                            <div className="flex justify-between items-center text-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setStep('credentials')}
+                                    className="text-indigo-200 hover:text-white underline"
+                                >
+                                    Back to Login
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={resendCooldown > 0 || loading}
+                                    onClick={handleResendOTP}
+                                    className="text-indigo-200 hover:text-white disabled:opacity-50"
+                                >
+                                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
 
                     <div className="mt-8 flex items-center justify-center gap-4 text-xs text-indigo-200/60">
                         <span>Restricted Access</span>
                         <span>•</span>
-                        <span>POS v3.0</span>
+                        <span>POS v3.1</span>
                     </div>
                 </div>
             </div>

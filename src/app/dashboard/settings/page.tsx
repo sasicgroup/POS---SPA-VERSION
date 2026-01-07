@@ -12,7 +12,7 @@ import {
     Save,
     Globe,
     Lock,
-    Mail,
+    MessageSquare,
     X,
     Tag,
     Package,
@@ -89,7 +89,7 @@ export default function SettingsPage() {
         { id: 'general', label: 'General', icon: Building2 },
         { id: 'products', label: 'Product Settings', icon: Package },
         { id: 'users', label: 'Team Members', icon: Users },
-        { id: 'sms', label: 'SMS & Notifications', icon: Mail },
+        { id: 'sms', label: 'SMS & Notifications', icon: MessageSquare },
     ];
 
     return (
@@ -265,7 +265,6 @@ export default function SettingsPage() {
                                                     {member.name}
                                                     {member.id === user.id && <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full">You</span>}
                                                 </p>
-                                                <p className="text-xs text-slate-500">{member.email || 'No email'}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -328,8 +327,10 @@ export default function SettingsPage() {
                                     const formData = new FormData(e.currentTarget);
                                     const data = {
                                         name: formData.get('name') as string,
-                                        email: formData.get('email') as string,
+                                        username: formData.get('username') as string,
+                                        phone: formData.get('phone') as string,
                                         pin: formData.get('pin') as string,
+                                        otp_enabled: formData.get('otp_enabled') === 'on',
                                         role: formData.get('role') as any
                                     };
 
@@ -351,8 +352,12 @@ export default function SettingsPage() {
                                             <input name="name" required defaultValue={editingMember?.name} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="e.g. John Doe" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
-                                            <input name="email" type="email" required defaultValue={editingMember?.email} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="john@example.com" />
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
+                                            <input name="username" required defaultValue={editingMember?.username} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="e.g. johndoe" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone Number</label>
+                                            <input name="phone" type="tel" defaultValue={editingMember?.phone} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="e.g. 0244000000" />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
@@ -367,6 +372,17 @@ export default function SettingsPage() {
                                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Access PIN</label>
                                                 <input name="pin" type="text" pattern="[0-9]{4,6}" required defaultValue={editingMember?.pin} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="e.g. 1234" title="4-6 digit PIN" />
                                             </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 pt-2">
+                                            <input
+                                                type="checkbox"
+                                                name="otp_enabled"
+                                                id="otp_enabled_edit"
+                                                defaultChecked={editingMember ? editingMember.otp_enabled : true}
+                                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <label htmlFor="otp_enabled_edit" className="text-sm text-slate-700 dark:text-slate-300">Enable OTP (Requires Phone Number)</label>
                                         </div>
                                     </div>
                                     <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 rounded-b-2xl">
@@ -712,18 +728,6 @@ export default function SettingsPage() {
                                                         className="sr-only peer"
                                                         checked={smsConfig.notifications.owner.sms}
                                                         onChange={(e) => setSmsConfig({ ...smsConfig, notifications: { ...smsConfig.notifications, owner: { ...smsConfig.notifications.owner, sms: e.target.checked } } })}
-                                                    />
-                                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
-                                                </label>
-                                            </div>
-                                            <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
-                                                <span className="text-sm text-slate-600 dark:text-slate-400">Send Email on Sale</span>
-                                                <label className="relative inline-flex items-center cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        className="sr-only peer"
-                                                        checked={smsConfig.notifications.owner.email}
-                                                        onChange={(e) => setSmsConfig({ ...smsConfig, notifications: { ...smsConfig.notifications, owner: { ...smsConfig.notifications.owner, email: e.target.checked } } })}
                                                     />
                                                     <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
                                                 </label>

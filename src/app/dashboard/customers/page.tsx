@@ -11,7 +11,6 @@ interface Customer {
     id: any;
     name: string;
     phone: string;
-    email: string;
     total_spent: number;
     points: number;
     last_visit: string;
@@ -30,7 +29,7 @@ export default function CustomersPage() {
 
     // Add Customer State
     const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
-    const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' });
+    const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -60,7 +59,6 @@ export default function CustomersPage() {
             store_id: activeStore.id,
             name: newCustomer.name,
             phone: newCustomer.phone,
-            email: newCustomer.email,
             total_spent: 0,
             points: 0
         }).select().single();
@@ -71,7 +69,7 @@ export default function CustomersPage() {
         } else if (data) {
             setCustomers(prev => [data, ...prev]);
             setIsAddCustomerOpen(false);
-            setNewCustomer({ name: '', phone: '', email: '' });
+            setNewCustomer({ name: '', phone: '' });
         }
         setIsSubmitting(false);
     };
@@ -101,7 +99,7 @@ export default function CustomersPage() {
                 <Search className="h-5 w-5 text-slate-400" />
                 <input
                     type="text"
-                    placeholder="Search by name, phone or email..."
+                    placeholder="Search by name or phone..."
                     className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400 dark:text-white"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -163,7 +161,7 @@ export default function CustomersPage() {
                                     <User className="h-10 w-10" />
                                 </div>
                                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedCustomer.name}</h2>
-                                <p className="text-sm text-slate-500">{selectedCustomer.email || 'No Email'}</p>
+                                <p className="text-sm text-slate-500">{selectedCustomer.phone || 'No Phone'}</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 mb-8">
@@ -180,9 +178,6 @@ export default function CustomersPage() {
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
                                     <Phone className="h-4 w-4" /> {selectedCustomer.phone}
-                                </div>
-                                <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                                    <Mail className="h-4 w-4" /> {selectedCustomer.email || 'N/A'}
                                 </div>
                                 <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
                                     <Calendar className="h-4 w-4" /> Last Visit: {selectedCustomer.last_visit ? new Date(selectedCustomer.last_visit).toLocaleDateString() : 'Never'}
