@@ -10,7 +10,9 @@ import {
     Plus,
     Save,
     Trash2,
-    X
+    X,
+    Calendar,
+    Megaphone
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -36,12 +38,15 @@ export default function LoyaltyPage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingTier, setEditingTier] = useState<any>(null);
 
+    const [campaigns, setCampaigns] = useState<any[]>([]);
+    const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
+
     // Mock Customer Data for Dashboard
     const stats = {
-        totalMembers: 1240,
-        pointsIssued: 45000,
-        pointsRedeemed: 12500,
-        activeRate: '65%'
+        totalMembers: 0,
+        pointsIssued: 0,
+        pointsRedeemed: 0,
+        activeRate: '0%'
     };
 
     if (!activeStore) return null;
@@ -105,16 +110,72 @@ export default function LoyaltyPage() {
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
-                        <Gift className="mx-auto h-12 w-12 text-slate-400" />
-                        <h3 className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">No active campaigns</h3>
-                        <p className="mt-1 text-sm text-slate-500">Get started by creating a double-points weekend promo.</p>
-                        <div className="mt-6">
-                            <button className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
-                                <Plus className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
-                                Create Campaign
-                            </button>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Active Campaigns</h2>
+                            {campaigns.length > 0 && (
+                                <button
+                                    onClick={() => setIsCampaignModalOpen(true)}
+                                    className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                                >
+                                    <Plus className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
+                                    New Campaign
+                                </button>
+                            )}
                         </div>
+
+                        {campaigns.length === 0 ? (
+                            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
+                                <Gift className="mx-auto h-12 w-12 text-slate-400" />
+                                <h3 className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">No active campaigns</h3>
+                                <p className="mt-1 text-sm text-slate-500">Get started by creating a double-points weekend promo.</p>
+                                <div className="mt-6">
+                                    <button
+                                        onClick={() => setIsCampaignModalOpen(true)}
+                                        className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                                    >
+                                        <Plus className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
+                                        Create Campaign
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {campaigns.map((campaign) => (
+                                    <div key={campaign.id} className="relative rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="rounded-lg bg-indigo-100 p-2 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                                    <Megaphone className="h-5 w-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-900 dark:text-white">{campaign.name}</h3>
+                                                    <p className="text-xs text-slate-500 line-clamp-1">{campaign.description}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${new Date(campaign.endDate) < new Date()
+                                                ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                                : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                }`}>
+                                                {new Date(campaign.endDate) < new Date() ? 'Ended' : 'Active'}
+                                            </span>
+                                        </div>
+                                        <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+                                            <div className="flex items-center gap-1">
+                                                <Calendar className="h-4 w-4" />
+                                                <span>{new Date(campaign.startDate).toLocaleDateString()} - {new Date(campaign.endDate).toLocaleDateString()}</span>
+                                            </div>
+                                            <button
+                                                onClick={() => setCampaigns(campaigns.filter(c => c.id !== campaign.id))}
+                                                className="text-slate-400 hover:text-red-500"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -326,6 +387,95 @@ export default function LoyaltyPage() {
                                 Cancel
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Campaign Modal */}
+            {isCampaignModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 animate-in zoom-in-95">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Create New Campaign</h2>
+                            <button onClick={() => setIsCampaignModalOpen(false)} className="rounded-full p-2 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                <X className="h-5 w-5 text-slate-500" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            const newCampaign = {
+                                id: Date.now().toString(),
+                                name: formData.get('name') as string,
+                                description: formData.get('description') as string,
+                                startDate: formData.get('startDate') as string,
+                                endDate: formData.get('endDate') as string,
+                                createdAt: new Date().toISOString()
+                            };
+                            setCampaigns([...campaigns, newCampaign]);
+                            setIsCampaignModalOpen(false);
+                        }}>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Campaign Name</label>
+                                    <input
+                                        name="name"
+                                        type="text"
+                                        required
+                                        placeholder="e.g. Summer Sale"
+                                        className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-800 dark:bg-slate-800 dark:text-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
+                                    <input
+                                        name="description"
+                                        type="text"
+                                        placeholder="Brief description of the campaign..."
+                                        className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-800 dark:bg-slate-800 dark:text-white"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Start Date</label>
+                                        <input
+                                            name="startDate"
+                                            type="date"
+                                            required
+                                            defaultValue={new Date().toISOString().split('T')[0]}
+                                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-800 dark:bg-slate-800 dark:text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Date</label>
+                                        <input
+                                            name="endDate"
+                                            type="date"
+                                            required
+                                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-800 dark:bg-slate-800 dark:text-white"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 flex gap-3">
+                                <button
+                                    type="submit"
+                                    className="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
+                                >
+                                    Create Campaign
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCampaignModalOpen(false)}
+                                    className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
