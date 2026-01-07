@@ -220,50 +220,162 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const [teamMembers, setTeamMembers] = useState<User[]>([]);
+
+    useEffect(() => {
+        if (activeStore?.id) {
+            fetchTeamMembers();
+        }
+    }, [activeStore?.id]);
+
+    const fetchTeamMembers = async () => {
+        if (!activeStore?.id) return;
+
+        // Skip for legacy/mock
+        if (activeStore.id.toString().startsWith('store-')) return;
+
+        // 1. Get employees directly linked via store_id (Simple One-Store Mode)
+        const { data: directEmployees } = await supabase
+            .from('employees')
+            .select('*')
+            .eq('store_id', activeStore.id);
+
+        // 2. Get employees linked via employee_access (Multi-Store Mode)
+        const { data: accessEmployees } = await supabase
+            .from('employee_access')
+            .select('employee_id, role, employees(*)')
+            .eq('store_id', activeStore.id);
+
+        let mergedMembers: User[] = [];
+
+        if (directEmployees) {
+            mergedMembers = [...mergedMembers, ...directEmployees.map((e: any) => ({
+                id: e.id,
+                name: e.name,
+                email: e.email,
+                phone: e.phone,
+                role: e.role as any,
+                pin: e.pin,
+                avatar: e.avatar_url
+            }))];
+        }
+
+        if (accessEmployees) {
+            const mappedAccess = accessEmployees.map((a: any) => ({
+                id: a.employees.id,
+                name: a.employees.name,
+                email: a.employees.email,
+                phone: a.employees.phone,
+                role: a.role as any, // Override role with store-specific role
+                pin: a.employees.pin,
+                avatar: a.employees.avatar_url
+            }));
+
+            // Merge avoiding duplicates (Access table usually overrides)
+            const map = new Map();
+            mergedMembers.forEach(m => map.set(m.id, m));
+            mappedAccess.forEach((m: any) => map.set(m.id, m));
+            mergedMembers = Array.from(map.values());
+        }
+
+        setTeamMembers(mergedMembers);
+    };
+
+    const addTeamMember = async (member: Omit<User, 'id'>) => {
+        if (!activeStore?.id) return;
+
+        // 1. Create in 'employees' table
+        const { data: newEmp, error: createError } = await supabase.from('employees').insert({
+            name: member.name,
+            email: member.email,
+            phone: member.phone,
+            pin: member.pin,
+            role: member.role, // Default role
+            store_id: activeStore.id // Set home store
+        }).select().single();
+
+        if (createError) throw createError;
+        if (!newEmp) return;
+
+        // 2. Create in 'employee_access' for permission handling
+        await supabase.from('employee_access').insert({
+            employee_id: newEmp.id,
+            store_id: activeStore.id,
+            role: member.role
+        });
+
+        fetchTeamMembers();
+    };
+
+    const updateTeamMember = async (id: any, updates: Partial<User>) => {
+        if (!activeStore?.id) return;
+
+        // Update basic info
+        if (updates.name || updates.email || updates.pin) {
+            await supabase.from('employees').update({
+                name: updates.name,
+                email: updates.email,
+                pin: updates.pin
+            }).eq('id', id);
+        }
+
+        // Update Role for this store
+        if (updates.role) {
+            const { data: existingAccess } = await supabase
+                .from('employee_access')
+                .select('*')
+                .eq('employee_id', id)
+                .eq('store_id', activeStore.id)
+                .maybeSingle();
+
+            if (existingAccess) {
+                await supabase.from('employee_access')
+                    .update({ role: updates.role })
+                    .eq('id', existingAccess.id);
+            } else {
+                await supabase.from('employee_access').insert({
+                    employee_id: id,
+                    store_id: activeStore.id,
+                    role: updates.role
+                });
+            }
+        }
+
+        fetchTeamMembers();
+    };
+
+    const removeTeamMember = async (id: any) => {
+        if (!activeStore?.id) return;
+
+        await supabase.from('employee_access')
+            .delete()
+            .eq('employee_id', id)
+            .eq('store_id', activeStore.id);
+
+        // Optionally clean up orphan employee if needed, but safer to keep record
+        // await supabase.from('employees').delete().eq('id', id).eq('store_id', activeStore.id);
+
+        fetchTeamMembers();
+    };
+
     const updateStoreSettings = async (settings: Partial<Store>) => {
-        if (!activeStore) return;
-
-        // Optimistic Update
-        const updatedStore = { ...activeStore, ...settings };
-        setActiveStore(updatedStore);
-        setStores(prev => prev.map(s => s.id === activeStore.id ? updatedStore : s));
-
-        // Supabase Update
-        if (activeStore.id && typeof activeStore.id === 'string' && !activeStore.id.startsWith('store-')) {
-            const { error } = await supabase
-                .from('stores')
-                .update({
-                    name: settings.name,
-                    location: settings.location,
-                    currency: settings.currency,
-                    tax_settings: settings.taxSettings
-                })
-                .eq('id', activeStore.id);
-
-            if (error) console.error("Failed to update store settings", error);
+        if (activeStore?.id) {
+            await supabase.from('stores').update(settings).eq('id', activeStore.id);
+            setActiveStore(prev => prev ? { ...prev, ...settings } : null);
+            setStores(prev => prev.map(s => s.id === activeStore.id ? { ...s, ...settings } : s));
         }
     };
 
     const createStore = async (name: string, location: string) => {
-        // Optimistic
+        // ... existing implementation
         const tempId = 'temp-' + Date.now();
-        const newStore: Store = {
-            id: tempId,
-            name,
-            location,
-            currency: 'GHS'
-        };
+        const newStore: Store = { id: tempId, name, location, currency: 'GHS' };
         setStores(prev => [...prev, newStore]);
         setActiveStore(newStore);
-
-        // Supabase Insert
-        const { data, error } = await supabase.from('stores').insert([{ name, location }]).select().single();
+        const { data } = await supabase.from('stores').insert([{ name, location }]).select().single();
         if (data) {
-            // Update logic with real ID
             setStores(prev => prev.map(s => s.id === tempId ? data : s));
             setActiveStore(data);
-        } else if (error) {
-            console.error("Failed to create store", error);
         }
     };
 
@@ -273,11 +385,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             activeStore,
             stores,
             isLoading,
+            teamMembers,
             login,
             logout,
             switchStore,
             updateStoreSettings,
-            createStore
+            createStore,
+            addTeamMember,
+            updateTeamMember,
+            removeTeamMember
         }}>
             {children}
         </AuthContext.Provider>
