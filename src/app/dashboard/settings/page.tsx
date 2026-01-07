@@ -287,6 +287,34 @@ export default function SettingsPage() {
                                                 </label>
                                             ))}
                                         </div>
+                                        <div className="flex gap-2 max-w-md mt-3">
+                                            <div className="relative flex-1">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Add custom business type..."
+                                                    className="w-full rounded-lg border border-slate-200 bg-white py-2 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            const val = e.currentTarget.value.trim();
+                                                            if (val) addCustomBusinessType(val);
+                                                            e.currentTarget.value = '';
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <button
+                                                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                                                onClick={(e) => {
+                                                    const input = e.currentTarget.previousElementSibling?.querySelector('input');
+                                                    if (input && input.value.trim()) {
+                                                        addCustomBusinessType(input.value.trim());
+                                                        input.value = '';
+                                                    }
+                                                }}
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
