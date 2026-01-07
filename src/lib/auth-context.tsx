@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import { loadSMSConfigFromDB, sendDirectMessage } from '@/lib/sms';
+import { logActivity } from '@/lib/logger';
 
 // Define Store Type
 export interface Store {
@@ -169,6 +170,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setUser(loggedUser);
         localStorage.setItem('sms_user', JSON.stringify(loggedUser));
+        setUser(loggedUser);
+        localStorage.setItem('sms_user', JSON.stringify(loggedUser));
+
+        // Log Login (Only if not just init) - Actually this is initAuth, maybe skip logging here or log 'SESSION_RESTORED'
+        // logActivity('SESSION_RESTORED', {}, loggedUser.id, mappedStores?.[0]?.id);
+
         return { success: true, status: 'SUCCESS', tempUser: loggedUser };
     };
 
@@ -280,6 +287,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return { success: true, status: 'OTP_REQUIRED', tempUser: userObj };
             }
 
+            // 5. Finalize Login (Direct)
+            await logActivity('LOGIN_SUCCESS', { method: 'PIN' }, userObj.id, employee.store_id);
             return await finalizeLogin(userObj);
 
         } catch (e: any) {
@@ -314,6 +323,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     otp_enabled: employees.otp_enabled
                 };
                 await finalizeLogin(userObj);
+                await logActivity('LOGIN_SUCCESS', { method: 'OTP' }, userObj.id, employees.store_id);
                 return true;
             }
         }
@@ -340,21 +350,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check permission (User context must be set)
         if (!user) return false;
 
-        // Simple hierarchy check: Owner > Manager > Associate
-        // Implemented by UI logic mostly, but here we just process the update
-        // Real implementation should query role of target vs currentUser
-
         const { error } = await supabase.from('employees').update({
             is_locked: false,
             failed_attempts: 0
         }).eq('id', userId);
 
+        if (!error) {
+            await logActivity('UNLOCK_ACCOUNT', { target_user_id: userId }, user.id, activeStore?.id);
+        }
+
         return !error;
     };
 
 
-
     const logout = () => {
+        if (user) logActivity('LOGOUT', {}, user.id, activeStore?.id);
         setUser(null);
         localStorage.removeItem('sms_user');
         window.location.href = '/';
@@ -366,6 +376,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setActiveStore(found);
             localStorage.setItem('sms_active_store_id', found.id);
             if (found.id) loadSMSConfigFromDB(found.id);
+            if (user) logActivity('SWITCH_STORE', { new_store_name: found.name, new_store_id: found.id }, user.id, found.id);
         }
     };
 
@@ -469,6 +480,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             role: member.role
         });
 
+        await logActivity('CREATE_EMPLOYEE', { name: member.name, role: member.role, username: member.username }, user?.id, activeStore?.id);
         fetchTeamMembers();
     };
 
@@ -511,6 +523,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         }
 
+        await logActivity('UPDATE_EMPLOYEE', { target_user_id: id, updates }, user?.id, activeStore?.id);
+
         fetchTeamMembers();
     };
 
@@ -522,8 +536,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .eq('employee_id', id)
             .eq('store_id', activeStore.id);
 
-        // Optionally clean up orphan employee if needed, but safer to keep record
-        // await supabase.from('employees').delete().eq('id', id).eq('store_id', activeStore.id);
+        await logActivity('DELETE_EMPLOYEE', { target_user_id: id }, user?.id, activeStore?.id);
 
         fetchTeamMembers();
     };
@@ -546,6 +559,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data) {
             setStores(prev => prev.map(s => s.id === tempId ? data : s));
             setActiveStore(data);
+            if (user) logActivity('CREATE_STORE', { store_name: name, store_id: data.id }, user.id, data.id);
         }
     };
 

@@ -25,7 +25,8 @@ import {
     Award,
     CalendarClock,
     ShieldCheck,
-    Receipt
+    Receipt,
+    Activity
 } from 'lucide-react';
 
 
@@ -57,6 +58,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: 'Employees', href: '/dashboard/employees', icon: CreditCard },
         { name: 'Expenses', href: '/dashboard/expenses', icon: Receipt },
         { name: 'Reports', href: '/dashboard/reports', icon: TrendingUp },
+        { name: 'Activity Logs', href: '/dashboard/logs', icon: Activity },
         { name: 'Roles & Permissions', href: '/dashboard/roles', icon: ShieldCheck },
         { name: 'SMS / WhatsApp', href: '/dashboard/communication', icon: MessageSquare },
         { name: 'Settings', href: '/dashboard/settings', icon: Settings },
