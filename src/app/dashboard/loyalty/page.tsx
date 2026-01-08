@@ -19,7 +19,8 @@ import {
     Loader2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/lib/toast-context';
 
 export default function LoyaltyPage() {
     const { activeStore } = useAuth();
@@ -99,14 +100,71 @@ export default function LoyaltyPage() {
         }
     };
 
-    // Mock Loyalty Settings
+    // Loyalty configuration state
     const [settings, setSettings] = useState({
         enabled: true,
-        pointsPerCurrency: 1, // 1 point per 1 GHS
-        redemptionRate: 0.05, // 1 point = 0.05 GHS value (so 100 points = 5 GHS)
+        pointsPerCurrency: 1,
+        redemptionRate: 0.05,
         minRedemptionPoints: 100,
         expiryMonths: 12
     });
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
+    const { showToast } = useToast();
+
+    // Load Loyalty Settings
+    useEffect(() => {
+        const loadSettings = async () => {
+            if (!activeStore?.id) return;
+
+            const { data, error } = await supabase
+                .from('loyalty_programs')
+                .select('*')
+                .eq('store_id', activeStore.id)
+                .single();
+
+            if (data) {
+                setSettings({
+                    enabled: data.enabled,
+                    pointsPerCurrency: data.points_per_currency,
+                    redemptionRate: data.redemption_rate,
+                    minRedemptionPoints: data.min_points_to_redeem,
+                    expiryMonths: 12 // Default as not in schema yet
+                });
+            } else if (!error && !data) {
+                // Initialize defaults for new store
+                await supabase.from('loyalty_programs').insert({
+                    store_id: activeStore.id,
+                    points_per_currency: 1,
+                    redemption_rate: 0.05,
+                    min_points_to_redeem: 100
+                });
+            }
+        };
+        loadSettings();
+    }, [activeStore]);
+
+    const handleSaveSettings = async () => {
+        if (!activeStore?.id) return;
+        setIsSavingSettings(true);
+
+        const { error } = await supabase
+            .from('loyalty_programs')
+            .upsert({
+                store_id: activeStore.id,
+                points_per_currency: settings.pointsPerCurrency,
+                redemption_rate: settings.redemptionRate,
+                min_points_to_redeem: settings.minRedemptionPoints,
+                enabled: settings.enabled
+            }, { onConflict: 'store_id' });
+
+        if (error) {
+            console.error('Failed to save settings:', error);
+            showToast('error', 'Failed to save loyalty settings');
+        } else {
+            showToast('success', 'Loyalty settings saved!');
+        }
+        setIsSavingSettings(false);
+    };
 
     // Mock Tiers
     const [tiers, setTiers] = useState([
@@ -420,9 +478,13 @@ export default function LoyaltyPage() {
                         </div>
 
                         <div className="flex justify-end pt-4">
-                            <button className="flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700">
+                            <button
+                                onClick={handleSaveSettings}
+                                disabled={isSavingSettings}
+                                className="flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                                 <Save className="mr-2 h-4 w-4" />
-                                Save Settings
+                                {isSavingSettings ? 'Saving...' : 'Save Settings'}
                             </button>
                         </div>
                     </div>

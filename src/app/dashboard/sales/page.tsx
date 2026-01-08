@@ -8,6 +8,7 @@ import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Smartp
 import { useState, useRef, useEffect } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
+import { initializeHubtelPayment, getHubtelConfig, HubtelConfig } from '@/lib/hubtel';
 
 export default function SalesPage() {
     const { activeStore, user } = useAuth();
@@ -42,6 +43,20 @@ export default function SalesPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isScanning, setIsScanning] = useState(false);
     const [scannedProduct, setScannedProduct] = useState<any | null>(null);
+
+    // Hubtel State
+    const [hubtelConfig, setHubtelConfig] = useState<HubtelConfig | null>(null);
+    const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+    useEffect(() => {
+        const loadHubtelConfig = async () => {
+            if (activeStore?.id) {
+                const config = await getHubtelConfig(activeStore.id);
+                setHubtelConfig(config);
+            }
+        };
+        loadHubtelConfig();
+    }, [activeStore]);
 
     const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -1006,10 +1021,41 @@ export default function SalesPage() {
                                         Cancel
                                     </button>
                                     <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                             setShowCheckoutConfirm(false);
-                                            handleCheckout();
+
+                                            if (paymentMethod === 'momo' && hubtelConfig?.enabled) {
+                                                // Process Hubtel MoMo payment
+                                                setIsProcessingPayment(true);
+
+                                                const paymentResult = await initializeHubtelPayment(hubtelConfig, {
+                                                    amount: grandTotal,
+                                                    customerName: customerName || 'Guest',
+                                                    customerPhone: customerPhone || '0000000000',
+                                                    description: `Purchase from ${activeStore.name}`,
+                                                    clientReference: `TRX-${Date.now()}`
+                                                });
+
+                                                setIsProcessingPayment(false);
+
+                                                if (paymentResult.success && paymentResult.checkoutUrl) {
+                                                    // Open Hubtel checkout in new window
+                                                    window.open(paymentResult.checkoutUrl, '_blank');
+                                                    showToast('info', 'Complete payment in the opened window');
+
+                                                    // Proceed with checkout after user confirms or automate verification later
+                                                    setTimeout(() => {
+                                                        handleCheckout();
+                                                    }, 5000);
+                                                } else {
+                                                    showToast('error', paymentResult.error || 'Payment initialization failed');
+                                                }
+                                            } else {
+                                                // Cash payment - proceed normally
+                                                handleCheckout();
+                                            }
                                         }}
+                                        disabled={isProcessingPayment}
                                         className="flex-1 rounded-xl bg-indigo-600 py-3 font-bold text-white hover:bg-indigo-700"
                                     >
                                         Confirm

@@ -1,8 +1,8 @@
-'use client';
-
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useInventory } from '@/lib/inventory-context';
 import { getSMSConfig, updateSMSConfig, SMSConfig } from '@/lib/sms';
+import { getHubtelConfig, saveHubtelConfig } from '@/lib/hubtel';
 import { useToast } from '@/lib/toast-context';
 import { useState, useEffect } from 'react';
 import {
@@ -51,6 +51,60 @@ export default function SettingsPage() {
         username: ''
     });
     const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+    // Hubtel Config State
+    const [hubtelConfig, setHubtelConfig] = useState({
+        enabled: false,
+        client_id: '',
+        client_secret: '',
+        merchant_account: ''
+    });
+
+    useEffect(() => {
+        const loadHubtelConfig = async () => {
+            if (activeStore?.id) {
+                const config = await getHubtelConfig(activeStore.id);
+                if (config) setHubtelConfig(config);
+            }
+        };
+        loadHubtelConfig();
+    }, [activeStore]);
+
+    const handleUpdateProfile = async () => {
+        if (!user?.id) return;
+
+        // Don't allow deleting self through accidental empty fields if logic existed, 
+        // but here we just update.
+
+        const { error } = await supabase
+            .from('employees')
+            .update({
+                name: profileData.name,
+                phone: profileData.phone,
+                username: profileData.username
+            })
+            .eq('id', user.id);
+
+        if (error) {
+            showToast('error', 'Failed to update profile');
+        } else {
+            showToast('success', 'Profile updated successfully!');
+            // Update local user object - primitive way, context might need refresh but this helps persists slightly
+            const updatedUser = { ...user, ...profileData };
+            localStorage.setItem('sms_user', JSON.stringify(updatedUser));
+        }
+    };
+
+    const handleSaveHubtelConfig = async () => {
+        if (!activeStore?.id) return;
+
+        const success = await saveHubtelConfig(activeStore.id, hubtelConfig);
+        if (success) {
+            showToast('success', 'Hubtel settings saved successfully!');
+        } else {
+            showToast('error', 'Failed to save Hubtel settings');
+        }
+    };
 
     // Team Management State
     const [showInviteModal, setShowInviteModal] = useState(false);
@@ -261,6 +315,55 @@ export default function SettingsPage() {
                         </div>
                     )}
 
+                    {activeTab === 'profile' && (
+                        <div className="space-y-6">
+                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-6">My Profile</h2>
+
+                                <div className="grid gap-6 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Full Name</label>
+                                        <input
+                                            type="text"
+                                            value={profileData.name}
+                                            onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                                            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Username</label>
+                                        <input
+                                            type="text"
+                                            value={profileData.username}
+                                            onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
+                                            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Phone Number</label>
+                                        <input
+                                            type="tel"
+                                            value={profileData.phone}
+                                            onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                                            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+                                    <button
+                                        onClick={handleUpdateProfile}
+                                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+                                    >
+                                        Save Profile Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {activeTab === 'users' && (
                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                             <div className="flex justify-between items-center mb-6">
@@ -324,6 +427,72 @@ export default function SettingsPage() {
                                         No team members found. Invite someone to get started!
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'payments' && (
+                        <div className="space-y-6">
+                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Hubtel Payment Integration</h2>
+                                        <p className="text-sm text-slate-500 mt-1">Configure Hubtel MoMo payments for your store</p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={hubtelConfig.enabled}
+                                            onChange={(e) => setHubtelConfig({ ...hubtelConfig, enabled: e.target.checked })}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
+
+                                <div className="grid gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Client ID</label>
+                                        <input
+                                            type="text"
+                                            value={hubtelConfig.client_id}
+                                            onChange={(e) => setHubtelConfig({ ...hubtelConfig, client_id: e.target.value })}
+                                            placeholder="Enter your Hubtel Client ID"
+                                            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Client Secret</label>
+                                        <input
+                                            type="password"
+                                            value={hubtelConfig.client_secret}
+                                            onChange={(e) => setHubtelConfig({ ...hubtelConfig, client_secret: e.target.value })}
+                                            placeholder="Enter your Hubtel Client Secret"
+                                            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Merchant Account Number</label>
+                                        <input
+                                            type="text"
+                                            value={hubtelConfig.merchant_account}
+                                            onChange={(e) => setHubtelConfig({ ...hubtelConfig, merchant_account: e.target.value })}
+                                            placeholder="Enter your Merchant Account Number"
+                                            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+                                    <button
+                                        onClick={handleSaveHubtelConfig}
+                                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+                                    >
+                                        Save Payment Settings
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}

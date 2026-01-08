@@ -151,3 +151,17 @@ ADD COLUMN IF NOT EXISTS payment_settings jsonb DEFAULT '{
         "merchant_account": ""
     }
 }'::jsonb;
+
+-- 16. Create Loyalty Programs Table
+CREATE TABLE IF NOT EXISTS public.loyalty_programs (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    store_id uuid REFERENCES public.stores(id) ON DELETE CASCADE,
+    points_per_currency numeric DEFAULT 1,
+    redemption_rate numeric DEFAULT 0.05,
+    min_points_to_redeem int DEFAULT 100,
+    enabled boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(store_id)
+);
+
