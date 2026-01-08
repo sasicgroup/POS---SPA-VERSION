@@ -140,3 +140,14 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_store_id ON public.notifications(store_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON public.notifications(is_read);
+
+-- 15. Add payment_settings to stores table for Hubtel integration
+ALTER TABLE public.stores 
+ADD COLUMN IF NOT EXISTS payment_settings jsonb DEFAULT '{
+    "hubtel": {
+        "enabled": false,
+        "client_id": "",
+        "client_secret": "",
+        "merchant_account": ""
+    }
+}'::jsonb;
