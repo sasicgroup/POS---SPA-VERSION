@@ -152,7 +152,7 @@ export default function LoyaltyPage() {
                     pointsPerCurrency: settingsData.points_per_currency,
                     redemptionRate: settingsData.redemption_rate,
                     minRedemptionPoints: settingsData.min_points_to_redeem,
-                    expiryMonths: 12
+                    expiryMonths: 12 // Default for now
                 });
             } else if (!settingsData && !settingsError) {
                 // Initialize if missing
@@ -164,30 +164,84 @@ export default function LoyaltyPage() {
                 });
             }
 
-            // 2. Fetch Stats
-            const { data: customers, error: custError } = await supabase
+            // 2. Fetch Tiers
+            const { data: tiersData } = await supabase
+                .from('loyalty_tiers')
+                .select('*')
+                .eq('store_id', activeStore.id)
+                .order('min_points', { ascending: true });
+
+            if (tiersData && tiersData.length > 0) {
+                // Map DB fields to State fields
+                const mappedTiers = tiersData.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    minPoints: t.min_points,
+                    benefits: t.benefits || []
+                }));
+                setTiers(mappedTiers);
+            } else {
+                // Seed Default Tiers
+                const defaultTiers = [
+                    { name: 'Bronze', min_points: 0, benefits: ['Earn 1x Points'] },
+                    { name: 'Silver', min_points: 1000, benefits: ['Earn 1.2x Points', 'Birthday Gift'] },
+                    { name: 'Gold', min_points: 5000, benefits: ['Earn 1.5x Points', 'Free Delivery', 'Priority Support'] },
+                ];
+
+                // Insert sequentially
+                for (const tier of defaultTiers) {
+                    await supabase.from('loyalty_tiers').insert({
+                        store_id: activeStore.id,
+                        ...tier
+                    });
+                }
+
+                // Refetch to get IDs
+                const { data: stringTiers } = await supabase
+                    .from('loyalty_tiers')
+                    .select('*')
+                    .eq('store_id', activeStore.id)
+                    .order('min_points', { ascending: true });
+
+                if (stringTiers) {
+                    setTiers(stringTiers.map(t => ({
+                        id: t.id,
+                        name: t.name,
+                        minPoints: t.min_points,
+                        benefits: t.benefits || []
+                    })));
+                }
+            }
+
+            // 3. Fetch Stats Components
+            // Customers Count
+            const { count: customersCount } = await supabase
                 .from('customers')
-                .select('points, total_spent')
+                .select('*', { count: 'exact', head: true })
                 .eq('store_id', activeStore.id);
 
-            if (customers) {
-                const totalMembers = customers.length;
-                const totalPoints = customers.reduce((sum, c) => sum + (c.points || 0), 0);
-                // We don't have a direct 'redeemed' counter on customer, would need a transaction table. 
-                // For now, we will show 0 or assume we track it later.
+            // Loyalty Logs Aggregation
+            const { data: logs } = await supabase
+                .from('loyalty_logs')
+                .select('points, type')
+                .eq('store_id', activeStore.id);
 
-                // Calculate "Active" as customers with points > 0
-                const activeCount = customers.filter(c => c.points > 0).length;
-                const activeRate = totalMembers > 0 ? Math.round((activeCount / totalMembers) * 100) + '%' : '0%';
+            let issued = 0;
+            let redeemed = 0;
 
-                // Update the stats object (we need to make it stateful)
-                setStats({
-                    totalMembers,
-                    pointsIssued: totalPoints, // Showing current balance sum as a proxy for now
-                    pointsRedeemed: 0,
-                    activeRate
+            if (logs) {
+                logs.forEach(log => {
+                    if (log.type === 'earned') issued += log.points;
+                    if (log.type === 'redeemed') redeemed += Math.abs(log.points);
                 });
             }
+
+            setStats({
+                totalMembers: customersCount || 0,
+                pointsIssued: issued,
+                pointsRedeemed: redeemed,
+                activeRate: '0%'
+            });
         };
         loadData();
     }, [activeStore]);
@@ -217,14 +271,11 @@ export default function LoyaltyPage() {
         setIsSavingSettings(false);
     };
 
-    // Mock Tiers
-    const [tiers, setTiers] = useState([
-        { id: 1, name: 'Bronze', minPoints: 0, benefits: ['Earn 1x Points'] },
-        { id: 2, name: 'Silver', minPoints: 1000, benefits: ['Earn 1.2x Points', 'Birthday Gift'] },
-        { id: 3, name: 'Gold', minPoints: 5000, benefits: ['Earn 1.5x Points', 'Free Delivery', 'Priority Support'] },
-    ]);
+    // Tiers State
+    const [tiers, setTiers] = useState<any[]>([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingTier, setEditingTier] = useState<any>(null);
+    const [isSavingTier, setIsSavingTier] = useState(false);
 
     const [campaigns, setCampaigns] = useState<any[]>([]);
     const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
@@ -668,13 +719,35 @@ export default function LoyaltyPage() {
 
                         <div className="mt-8 flex gap-3">
                             <button
-                                onClick={() => {
-                                    setTiers(tiers.map(t => t.id === editingTier.id ? editingTier : t));
-                                    setIsEditModalOpen(false);
+                                disabled={isSavingTier}
+                                onClick={async () => {
+                                    setIsSavingTier(true);
+                                    try {
+                                        const { error } = await supabase
+                                            .from('loyalty_tiers')
+                                            .update({
+                                                name: editingTier.name,
+                                                min_points: editingTier.minPoints,
+                                                benefits: editingTier.benefits
+                                            })
+                                            .eq('id', editingTier.id);
+
+                                        if (error) throw error;
+
+                                        // Update Local
+                                        setTiers(tiers.map(t => t.id === editingTier.id ? editingTier : t));
+                                        setIsEditModalOpen(false);
+                                        showToast('success', 'Tier benefits updated!');
+                                    } catch (err) {
+                                        console.error(err);
+                                        showToast('error', 'Failed to update tier');
+                                    } finally {
+                                        setIsSavingTier(false);
+                                    }
                                 }}
-                                className="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
+                                className="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                             >
-                                Save Changes
+                                {isSavingTier ? 'Saving...' : 'Save Changes'}
                             </button>
                             <button
                                 onClick={() => setIsEditModalOpen(false)}

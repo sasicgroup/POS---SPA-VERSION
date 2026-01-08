@@ -182,6 +182,18 @@ CREATE TABLE IF NOT EXISTS public.loyalty_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_loyalty_logs_customer_id ON public.loyalty_logs(customer_id);
 
+-- 16.6 Create Loyalty Tiers Table
+CREATE TABLE IF NOT EXISTS public.loyalty_tiers (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    store_id uuid REFERENCES public.stores(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    min_points int DEFAULT 0,
+    benefits text[] DEFAULT '{}',
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    UNIQUE(store_id, name)
+);
+
 -- 17. Create SMS Logs Table
 CREATE TABLE IF NOT EXISTS public.sms_logs (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
