@@ -33,8 +33,6 @@ export default function SalesPage() {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isScanning, setIsScanning] = useState(false);
-    const [scanMode, setScanMode] = useState<'sell' | 'check'>('sell');
-    const [autoAdd, setAutoAdd] = useState(true);
     const [scannedProduct, setScannedProduct] = useState<any | null>(null);
 
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -187,16 +185,9 @@ export default function SalesPage() {
         });
 
         if (product) {
-            if (scanMode === 'check') {
-                setScannedProduct(product);
-            } else {
-                if (autoAdd) {
-                    addToCart(product);
-                    setSearchQuery('');
-                } else {
-                    setScannedProduct(product);
-                }
-            }
+            // Always add to cart in POS
+            addToCart(product);
+            setSearchQuery('');
         } else {
             playError();
             showToast('error', 'Product not found');
@@ -433,36 +424,10 @@ export default function SalesPage() {
                             {/* Real Camera Feed */}
                             <div id="sales-scanner-reader" className="w-full h-full"></div>
                         </div>
-                        <div className="mt-auto grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
-                            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <label className="text-sm font-medium text-slate-500 dark:text-slate-400">Scan Mode</label>
-                                <div className="mt-2 flex gap-2">
-                                    <button
-                                        onClick={() => setScanMode('sell')}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${scanMode === 'sell' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}
-                                    >
-                                        Add to Cart
-                                    </button>
-                                    <button
-                                        onClick={() => setScanMode('check')}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${scanMode === 'check' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}
-                                    >
-                                        Check Price
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hidden md:block">
-                                <label className="text-sm font-medium text-slate-500 dark:text-slate-400">Options</label>
-                                <div className="mt-3 flex items-center gap-3">
-                                    <button
-                                        onClick={() => setAutoAdd(!autoAdd)}
-                                        className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300"
-                                    >
-                                        {autoAdd ? <CheckSquare className="h-5 w-5 text-indigo-600" /> : <Square className="h-5 w-5 text-slate-400" />}
-                                        Auto-Add to Cart
-                                    </button>
-                                </div>
-                            </div>
+                        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-indigo-50 dark:bg-indigo-900/20">
+                            <p className="text-sm text-center text-indigo-700 dark:text-indigo-400 font-medium">
+                                📦 Scan to add items to cart
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -482,15 +447,8 @@ export default function SalesPage() {
                             <p className="text-sm text-slate-500">{scannedProduct.sku}</p>
                             <p className="text-2xl font-bold text-indigo-600">GHS {scannedProduct.price.toFixed(2)}</p>
                         </div>
-                        <div className="mt-6 flex gap-3">
-                            {scanMode === 'check' ? (
-                                <button onClick={() => setScannedProduct(null)} className="w-full rounded-xl bg-slate-100 py-3 font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300">Close</button>
-                            ) : (
-                                <>
-                                    <button onClick={() => setScannedProduct(null)} className="flex-1 rounded-xl bg-slate-100 py-3 font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300">Cancel</button>
-                                    <button onClick={() => { addToCart(scannedProduct); setScannedProduct(null); }} className="flex-1 rounded-xl bg-indigo-600 py-3 font-bold text-white hover:bg-indigo-700">Add to Cart</button>
-                                </>
-                            )}
+                        <div className="mt-6">
+                            <button onClick={() => setScannedProduct(null)} className="w-full rounded-xl bg-slate-100 py-3 font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300">Close</button>
                         </div>
                     </div>
                 </div>
@@ -522,16 +480,7 @@ export default function SalesPage() {
                         <p className="text-sm text-slate-500 dark:text-slate-400">Register: <span className="font-semibold text-indigo-600">Main-01</span></p>
                     </div>
                     <div className="flex gap-2 sm:gap-3">
-                        <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
-                            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:inline">Mode</span>
-                            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
-                            <button
-                                onClick={() => setScanMode(scanMode === 'sell' ? 'check' : 'sell')}
-                                className={`text-xs font-bold ${scanMode === 'sell' ? 'text-indigo-600' : 'text-amber-500'}`}
-                            >
-                                {scanMode === 'sell' ? 'SELL' : 'CHECK'}
-                            </button>
-                        </div>
+                        {/* Removed scan mode toggle - POS always adds to cart */}
                     </div>
                 </div>
 

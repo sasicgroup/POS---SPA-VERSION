@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth-context';
 import { useInventory } from '@/lib/inventory-context';
 import { useToast } from '@/lib/toast-context';
-import { Search, Filter, Plus, MoreHorizontal, Sparkles, Scan, Trash2, Printer, Barcode, CheckSquare, Square, X, Edit, Video } from 'lucide-react';
+import { Search, Filter, Plus, MoreHorizontal, Sparkles, Scan, Trash2, Printer, Barcode, CheckSquare, Square, X, Edit, Video, Camera } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -307,6 +307,13 @@ export default function InventoryPage() {
                     >
                         <Sparkles className="h-4 w-4" />
                         AI Optmize
+                    </button>
+                    <button
+                        onClick={() => setIsScanning(true)}
+                        className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    >
+                        <Camera className="h-4 w-4" />
+                        Scan
                     </button>
                     <button
                         onClick={() => setIsAddProductOpen(true)}
