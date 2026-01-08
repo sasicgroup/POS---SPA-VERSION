@@ -144,11 +144,17 @@ CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON public.notifications(is_
 -- 15. Add payment_settings to stores table for Hubtel integration
 ALTER TABLE public.stores 
 ADD COLUMN IF NOT EXISTS payment_settings jsonb DEFAULT '{
+    "default_provider": "hubtel",
     "hubtel": {
         "enabled": false,
         "client_id": "",
         "client_secret": "",
         "merchant_account": ""
+    },
+    "paystack": {
+        "enabled": false,
+        "public_key": "",
+        "secret_key": ""
     }
 }'::jsonb;
 

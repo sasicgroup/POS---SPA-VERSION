@@ -8,7 +8,9 @@ import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Smartp
 import { useState, useRef, useEffect } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
-import { initializeHubtelPayment, getHubtelConfig, HubtelConfig } from '@/lib/hubtel';
+import { initializeHubtelPayment } from '@/lib/hubtel';
+import { initializePaystackPayment } from '@/lib/paystack';
+import { getPaymentSettings, PaymentSettings } from '@/lib/payment-settings';
 
 export default function SalesPage() {
     const { activeStore, user } = useAuth();
@@ -44,18 +46,18 @@ export default function SalesPage() {
     const [isScanning, setIsScanning] = useState(false);
     const [scannedProduct, setScannedProduct] = useState<any | null>(null);
 
-    // Hubtel State
-    const [hubtelConfig, setHubtelConfig] = useState<HubtelConfig | null>(null);
+    // Payment Settings State
+    const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
     useEffect(() => {
-        const loadHubtelConfig = async () => {
+        const loadPaymentSettings = async () => {
             if (activeStore?.id) {
-                const config = await getHubtelConfig(activeStore.id);
-                setHubtelConfig(config);
+                const settings = await getPaymentSettings(activeStore.id);
+                setPaymentSettings(settings);
             }
         };
-        loadHubtelConfig();
+        loadPaymentSettings();
     }, [activeStore]);
 
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -1024,23 +1026,55 @@ export default function SalesPage() {
                                         onClick={async () => {
                                             setShowCheckoutConfirm(false);
 
-                                            if (paymentMethod === 'momo' && hubtelConfig?.enabled) {
-                                                // Process Hubtel MoMo payment
-                                                setIsProcessingPayment(true);
+                                            if (paymentMethod === 'momo') {
+                                                if (!paymentSettings) {
+                                                    showToast('error', 'Payment settings not loaded');
+                                                    return;
+                                                }
 
-                                                const paymentResult = await initializeHubtelPayment(hubtelConfig, {
-                                                    amount: grandTotal,
-                                                    customerName: customerName || 'Guest',
-                                                    customerPhone: customerPhone || '0000000000',
-                                                    description: `Purchase from ${activeStore.name}`,
-                                                    clientReference: `TRX-${Date.now()}`
-                                                });
+                                                const provider = paymentSettings.default_provider;
+
+                                                if (provider === 'hubtel' && !paymentSettings.hubtel.enabled) {
+                                                    showToast('error', 'Hubtel payments are disabled');
+                                                    return;
+                                                }
+                                                if (provider === 'paystack' && !paymentSettings.paystack.enabled) {
+                                                    showToast('error', 'Paystack payments are disabled');
+                                                    return;
+                                                }
+
+                                                setIsProcessingPayment(true);
+                                                let paymentResult;
+
+                                                if (provider === 'hubtel') {
+                                                    paymentResult = await initializeHubtelPayment(paymentSettings.hubtel, {
+                                                        amount: grandTotal,
+                                                        customerName: customerName || 'Guest',
+                                                        customerPhone: customerPhone || '0000000000',
+                                                        description: `Purchase from ${activeStore.name}`,
+                                                        clientReference: `TRX-${Date.now()}`
+                                                    });
+                                                } else {
+                                                    paymentResult = await initializePaystackPayment(paymentSettings.paystack, {
+                                                        amount: grandTotal,
+                                                        email: (customerName ? `${customerName.replace(/\s+/g, '')}@email.com` : 'guest@email.com').toLowerCase(), // Paystack requires email
+                                                        reference: `TRX-${Date.now()}`,
+                                                        metadata: {
+                                                            customer_name: customerName,
+                                                            customer_phone: customerPhone
+                                                        }
+                                                    });
+                                                }
 
                                                 setIsProcessingPayment(false);
 
-                                                if (paymentResult.success && paymentResult.checkoutUrl) {
-                                                    // Open Hubtel checkout in new window
-                                                    window.open(paymentResult.checkoutUrl, '_blank');
+                                                // Cast to any to access provider-specific fields
+                                                const result = paymentResult as any;
+                                                const checkoutUrl = result.checkoutUrl || result.authorization_url;
+
+                                                if (result.success && checkoutUrl) {
+                                                    // Open checkout in new window
+                                                    window.open(checkoutUrl, '_blank');
                                                     showToast('info', 'Complete payment in the opened window');
 
                                                     // Proceed with checkout after user confirms or automate verification later
