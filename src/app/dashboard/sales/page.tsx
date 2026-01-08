@@ -37,13 +37,25 @@ export default function SalesPage() {
         }
     }, []);
 
-    // Save Cart to LocalStorage
+    // Save Cart to LocalStorage with optimization for Quota Limits
     useEffect(() => {
         try {
-            localStorage.setItem('sms_cart', JSON.stringify(cart));
-        } catch (error) {
+            // Minify cart: Remove potentially large fields like full base64 images or descriptions
+            // We only need minimal data for restoration. Images can be re-fetched from products context or DB.
+            const minimalCart = cart.map(item => ({
+                ...item,
+                image: (item.image && item.image.length > 500) ? undefined : item.image, // Drop large images
+                video: undefined, // Drop video
+                description: undefined, // Drop description
+                status: undefined // Drop status
+            }));
+            localStorage.setItem('sms_cart', JSON.stringify(minimalCart));
+        } catch (error: any) {
             console.error("Failed to save cart to local storage:", error);
-            // Optionally clear old data or warn user 
+            if (error.name === 'QuotaExceededError' || error.message.toLowerCase().includes('quota')) {
+                showToast('error', 'Storage usage high. Cart may not persist on reload.');
+                // Attempt to cleanup slightly? Or just warn.
+            }
         }
     }, [cart]);
 
@@ -854,7 +866,11 @@ export default function SalesPage() {
                             cart.map(item => (
                                 <div key={item.id} className="flex gap-3 animate-in slide-in-from-right-4 duration-300">
                                     <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                                        <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                                        <img
+                                            src={products.find(p => p.id === item.id)?.image || item.image || '/placeholder.png'}
+                                            alt={item.name}
+                                            className="h-full w-full object-cover"
+                                        />
                                     </div>
                                     <div className="flex-1 flex flex-col justify-between">
                                         <div className="flex justify-between items-start">
