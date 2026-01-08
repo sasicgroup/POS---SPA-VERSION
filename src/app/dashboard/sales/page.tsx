@@ -53,8 +53,12 @@ export default function SalesPage() {
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'momo' | null>(null);
     const [showMobileCart, setShowMobileCart] = useState(false);
 
-    if (!activeStore) return null;
+    // Scanner Logic - must be declared before early return
+    const [cameraError, setCameraError] = useState('');
+    const scannerRef = useRef<Html5Qrcode | null>(null);
 
+    // Early return AFTER all hooks
+    if (!activeStore) return null;
 
     // Audio Refs
     const beepAudio = typeof Audio !== "undefined" ? new Audio('https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3') : null;
@@ -74,10 +78,6 @@ export default function SalesPage() {
             successAudio.play().catch(e => console.error("Audio play failed", e));
         }
     }
-
-    // Scanner Logic
-    const [cameraError, setCameraError] = useState('');
-    const scannerRef = useRef<Html5Qrcode | null>(null);
 
     useEffect(() => {
         if (isScanning) {
