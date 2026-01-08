@@ -442,7 +442,7 @@ export default function SalesPage() {
             // Sale Receipt
             await sendNotification('sale', {
                 id: trxId,
-                amount: grandTotal.toFixed(2),
+                amount: grandTotal, // Pass as number, let sendNotification format it
                 customerPhone: customerPhone,
                 items: cart.length,
                 pointsEarned: pointsEarned,
