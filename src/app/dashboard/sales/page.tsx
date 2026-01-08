@@ -405,51 +405,71 @@ export default function SalesPage() {
             .eq('id', activeStore.id);
 
         const pointsEarned = Math.floor(grandTotal);
-        const finalPoints = redeemPoints ? (loyaltyPoints - 100) + pointsEarned : loyaltyPoints + pointsEarned;
-        // Fix: Use existingCustomer state to check if they are actually new
-        const isNewCustomer = customerPhone.length >= 10 && customerName && !existingCustomer;
 
         // --- Update Customer Loyalty Points & Stats ---
         if (customerPhone) {
-            const { data: existingCust } = await supabase
+            // 1. Fetch fresh customer data to ensure we have the latest points/existence
+            const { data: freshCust } = await supabase
                 .from('customers')
                 .select('*')
                 .eq('store_id', activeStore.id)
                 .eq('phone', customerPhone)
                 .single();
 
-            if (existingCust) {
+            if (freshCust) {
+                // Calculate based on DB data
+                const currentDbPoints = freshCust.points || 0;
+                // If redeeming, we subtract 100, then add earned. 
+                // Note: grandTotal already has the discount applied if redeemPoints was true, 
+                // so we don't need to adjust pointsEarned, just the starting balance.
+                const finalPoints = redeemPoints
+                    ? (currentDbPoints - 100) + pointsEarned
+                    : currentDbPoints + pointsEarned;
+
                 await supabase.from('customers').update({
                     points: finalPoints,
-                    total_spent: (existingCust.total_spent || 0) + grandTotal,
-                    total_visits: (existingCust.total_visits || 0) + 1,
+                    total_spent: (freshCust.total_spent || 0) + grandTotal,
+                    total_visits: (freshCust.total_visits || 0) + 1,
                     last_visit: new Date().toISOString()
-                }).eq('id', existingCust.id);
+                }).eq('id', freshCust.id);
+
+                // Update Local State for UI
+                setLoyaltyPoints(finalPoints);
+                setExistingCustomer({
+                    ...freshCust,
+                    points: finalPoints,
+                    total_spent: (freshCust.total_spent || 0) + grandTotal,
+                    total_visits: (freshCust.total_visits || 0) + 1
+                });
+                setRedeemPoints(false);
+
+                // --- Notifications ---
+                // Trigger 'new customer' welcome if they were just created (points check or created_at check?)
+                // Since we just updated them, let's use the local 'existingCustomer' state check
+                // If existingCustomer was null BEFORE this transaction, they are new.
+                if (!existingCustomer) {
+                    await sendNotification('welcome', {
+                        customerName: freshCust.name,
+                        customerPhone: customerPhone
+                    });
+                }
+
+                // Sale Receipt
+                await sendNotification('sale', {
+                    id: trxId,
+                    amount: grandTotal,
+                    customerPhone: customerPhone,
+                    items: cart.length,
+                    pointsEarned: pointsEarned,
+                    totalPoints: finalPoints
+                });
+
+            } else {
+                console.warn("Customer not found for points update after sale processing", customerPhone);
             }
         }
 
         console.log(`Processing Sale: ${trxId}`);
-
-        // Trigger Notifications
-        if (customerPhone) {
-            // New Customer Welcome
-            if (isNewCustomer) {
-                await sendNotification('welcome', {
-                    customerName: customerName,
-                    customerPhone: customerPhone
-                });
-            }
-
-            // Sale Receipt
-            await sendNotification('sale', {
-                id: trxId,
-                amount: grandTotal, // Pass as number, let sendNotification format it
-                customerPhone: customerPhone,
-                items: cart.length,
-                pointsEarned: pointsEarned,
-                totalPoints: finalPoints
-            });
-        }
 
         // Trigger Print
         handlePrintReceipt(trxId);

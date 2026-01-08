@@ -12,13 +12,92 @@ import {
     Trash2,
     X,
     Calendar,
-    Megaphone
+    Megaphone,
+    Search,
+    AlertCircle,
+    CheckCircle,
+    Loader2
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 
 export default function LoyaltyPage() {
     const { activeStore } = useAuth();
     const [activeTab, setActiveTab] = useState('overview');
+
+    // --- Redemption Logic State ---
+    const [phone, setPhone] = useState('');
+    const [isLoadingRedemption, setIsLoadingRedemption] = useState(false);
+    const [customer, setCustomer] = useState<any>(null);
+    const [redeemAmount, setRedeemAmount] = useState('');
+    const [reason, setReason] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
+    const [errorMsg, setErrorMsg] = useState('');
+
+    const handleSearch = async () => {
+        if (!activeStore?.id || !phone) return;
+        setIsLoadingRedemption(true);
+        setCustomer(null);
+        setSuccessMsg('');
+        setErrorMsg('');
+
+        try {
+            const { data, error } = await supabase
+                .from('customers')
+                .select('*')
+                .eq('store_id', activeStore.id)
+                .eq('phone', phone)
+                .single();
+
+            if (data) {
+                setCustomer(data);
+            } else {
+                setErrorMsg('Customer not found');
+            }
+        } catch (e) {
+            console.error(e);
+            setErrorMsg('Error fetching customer');
+        } finally {
+            setIsLoadingRedemption(false);
+        }
+    };
+
+    const handleRedeem = async () => {
+        if (!customer || !redeemAmount) return;
+        const points = parseInt(redeemAmount);
+        if (isNaN(points) || points <= 0) {
+            setErrorMsg('Invalid points amount');
+            return;
+        }
+
+        if (points > (customer.points || 0)) {
+            setErrorMsg('Insufficient points balance');
+            return;
+        }
+
+        setIsLoadingRedemption(true);
+        try {
+            const newPoints = (customer.points || 0) - points;
+
+            // Update customer points
+            const { error: updateError } = await supabase
+                .from('customers')
+                .update({ points: newPoints })
+                .eq('id', customer.id);
+
+            if (updateError) throw updateError;
+
+            setSuccessMsg(`Successfully redeemed ${points} points for ${customer.name}. New Balance: ${newPoints}`);
+            setCustomer({ ...customer, points: newPoints });
+            setRedeemAmount('');
+            setReason('');
+        } catch (e) {
+            console.error(e);
+            setErrorMsg('Redemption failed');
+        } finally {
+            setIsLoadingRedemption(false);
+        }
+    };
 
     // Mock Loyalty Settings
     const [settings, setSettings] = useState({
@@ -68,6 +147,7 @@ export default function LoyaltyPage() {
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                     {[
                         { id: 'overview', name: 'Overview', icon: TrendingUp },
+                        { id: 'redemption', name: 'Redeem Points', icon: Gift },
                         { id: 'settings', name: 'Program Settings', icon: Settings },
                         { id: 'tiers', name: 'Tiers & Benefits', icon: Users },
                     ].map((tab) => (
@@ -176,6 +256,98 @@ export default function LoyaltyPage() {
                                 ))}
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'redemption' && (
+                <div className="grid gap-6 md:grid-cols-2">
+                    {/* Search Section */}
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-fit">
+                        <h2 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">Find Customer</h2>
+                        <div className="flex gap-2 mb-4">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                <input
+                                    type="tel"
+                                    placeholder="Enter phone number"
+                                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                />
+                            </div>
+                            <button
+                                onClick={handleSearch}
+                                disabled={isLoadingRedemption}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
+                            >
+                                {isLoadingRedemption ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+                            </button>
+                        </div>
+
+                        {errorMsg && (
+                            <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2 animate-in fade-in">
+                                <AlertCircle className="h-4 w-4" />
+                                {errorMsg}
+                            </div>
+                        )}
+
+                        {successMsg && (
+                            <div className="p-3 bg-green-50 text-green-600 rounded-lg text-sm flex items-center gap-2 animate-in fade-in">
+                                <CheckCircle className="h-4 w-4" />
+                                {successMsg}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Redemption Section */}
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden h-fit">
+                        {!customer ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm z-10 transition-all">
+                                <p className="text-slate-400 text-sm font-medium">Search for a customer to redeem points</p>
+                            </div>
+                        ) : null}
+
+                        <div className="mb-6">
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{customer?.name}</h2>
+                            <p className="text-slate-500 text-sm">{customer?.phone}</p>
+                            <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-900/50 flex justify-between items-center">
+                                <span className="text-indigo-700 dark:text-indigo-300 font-medium text-sm">Available Balance</span>
+                                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{customer?.points || 0} pts</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Points to Redeem</label>
+                                <input
+                                    type="number"
+                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                    placeholder="0"
+                                    value={redeemAmount}
+                                    onChange={(e) => setRedeemAmount(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Reason / Item Redeemed</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                    placeholder="e.g. T-Shirt, 10% Discount"
+                                    value={reason}
+                                    onChange={(e) => setReason(e.target.value)}
+                                />
+                            </div>
+
+                            <button
+                                onClick={handleRedeem}
+                                disabled={isLoadingRedemption || !redeemAmount}
+                                className="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl shadow-lg shadow-pink-500/30 transition-all disabled:opacity-50 disabled:shadow-none text-sm"
+                            >
+                                Redeem Points
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
