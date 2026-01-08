@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 import { useAuth } from './auth-context';
 
@@ -91,6 +91,8 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         setActiveCategories(prev => prev.map(c => c === oldCategory ? newCategory : c));
     };
 
+    const isFetching = useRef(false);
+
     useEffect(() => {
         if (activeStore?.id) {
             // Check if we have valid cache for this store
@@ -104,7 +106,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 setProducts(productsCache.data);
                 setIsLoading(false);
             } else {
-                console.log('[Inventory] Cache miss or stale, fetching fresh data');
                 fetchProducts();
             }
         } else {
@@ -115,13 +116,20 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
     const fetchProducts = async (retry = true) => {
         if (!activeStore?.id) {
-            console.log('[Inventory] No active store, stopping load');
             setIsLoading(false);
             return;
         }
 
+        // Prevent duplicate fetches
+        if (isFetching.current) {
+            console.log('[Inventory] Fetch already in progress, skipping duplicate call.');
+            return;
+        }
+
         console.log('[Inventory] Fetching products for store:', activeStore.id);
+        isFetching.current = true;
         setIsLoading(true);
+
         try {
             const { data, error } = await supabase
                 .from('products')
@@ -129,7 +137,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 .eq('store_id', activeStore.id);
 
             if (error) {
-                console.error('[Inventory] Error fetching products:', error);
                 throw error;
             } else if (data) {
                 console.log('[Inventory] Fetched products:', data.length);
@@ -152,17 +159,31 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 setIsLoading(false);
             }
         } catch (err: any) {
-            console.error('[Inventory] Unexpected error fetching products:', err);
+            console.error('[Inventory] Error fetching products:', err.message || err);
+
             // Simple retry logic
             if (retry) {
                 console.log('[Inventory] Retrying fetch in 2s...');
+                isFetching.current = false; // Release lock for retry
                 setTimeout(() => fetchProducts(false), 2000);
-                return; // Don't set loading false yet, retry will handle it
+                return;
             } else {
-                setProducts([]);
+                // Only clear if final attempt failed
+                if (products.length === 0) setProducts([]);
                 setIsLoading(false);
             }
+        } finally {
+            if (!retry) {
+                isFetching.current = false;
+            }
+            // Note: If retrying, we released lock above before setTimeout, 
+            // but if we are successfully done (no error), we must release here.
+            // If error caught and retry=true, we returned early, so this finally block runs?
+            // Wait, finally runs before return? Yes.
+
+            // Let's simplify logic to avoid confusion.
         }
+        isFetching.current = false;
     };
 
     const addProduct = async (product: any) => {
