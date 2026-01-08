@@ -25,7 +25,7 @@ export interface User {
     name: string;
     username?: string;
     phone?: string;
-    role: 'owner' | 'manager' | 'associate';
+    role: 'owner' | 'manager' | 'staff';
     pin: string;
     avatar?: string;
     otp_enabled?: boolean;
@@ -187,11 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             let query = supabase.from('employees').select('*').eq('username', username).limit(1);
             let { data: employees, error } = await query;
 
-            // Fallback for demo owner if DB empty or not found via username yet
-            if ((!employees || employees.length === 0) && username === 'admin' && pin === '1234') {
-                const fallbackOwner: User = { id: 'owner-1', name: 'Store Owner', username: 'admin', role: 'owner', pin: '1234', otp_enabled: false };
-                return await finalizeLogin(fallbackOwner);
-            }
+
 
             if (error || !employees || employees.length === 0) {
                 // Try searching by name just in case (optional, remove if strict)

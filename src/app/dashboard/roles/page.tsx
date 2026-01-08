@@ -68,7 +68,7 @@ export default function RolesPage() {
             // Grant Access
             const { error } = await supabase
                 .from('employee_access')
-                .insert({ employee_id: employeeId, store_id: storeId, role: 'associate' }); // Default role, could be improved
+                .insert({ employee_id: employeeId, store_id: storeId, role: 'staff' }); // Default role, could be improved
 
             if (!error) {
                 setAccessMap(prev => ({

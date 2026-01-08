@@ -31,7 +31,7 @@ export default function EmployeesPage() {
 
     const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
     const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({
-        name: '', username: '', phone: '', role: 'associate', pin: '', salary: 0, otp_enabled: true,
+        name: '', username: '', phone: '', role: 'staff', pin: '', salary: 0, otp_enabled: true,
         shift_start: '', shift_end: '', work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,7 +80,7 @@ export default function EmployeesPage() {
                 setEmployees(prev => prev.map(e => e.id === editingId ? { ...e, ...newEmployee } : e) as any);
                 setIsAddEmployeeOpen(false);
                 setEditingId(null);
-                setNewEmployee({ name: '', username: '', phone: '', role: 'associate', pin: '', salary: 0, otp_enabled: true, shift_start: '', shift_end: '', work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] });
+                setNewEmployee({ name: '', username: '', phone: '', role: 'staff', pin: '', salary: 0, otp_enabled: true, shift_start: '', shift_end: '', work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] });
             }
         } else {
             // Insert
@@ -104,7 +104,7 @@ export default function EmployeesPage() {
             } else if (data) {
                 setEmployees(prev => [data, ...prev]);
                 setIsAddEmployeeOpen(false);
-                setNewEmployee({ name: '', username: '', phone: '', role: 'associate', pin: '', salary: 0, otp_enabled: true, shift_start: '', shift_end: '', work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] });
+                setNewEmployee({ name: '', username: '', phone: '', role: 'staff', pin: '', salary: 0, otp_enabled: true, shift_start: '', shift_end: '', work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] });
             }
         }
         setIsSubmitting(false);
@@ -149,7 +149,7 @@ export default function EmployeesPage() {
                 <button
                     onClick={() => {
                         setEditingId(null);
-                        setNewEmployee({ name: '', username: '', phone: '', role: 'associate', pin: '', salary: 0, otp_enabled: true, shift_start: '', shift_end: '', work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] });
+                        setNewEmployee({ name: '', username: '', phone: '', role: 'staff', pin: '', salary: 0, otp_enabled: true, shift_start: '', shift_end: '', work_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] });
                         setIsAddEmployeeOpen(true);
                     }}
                     className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 active:bg-indigo-800 shadow-lg shadow-indigo-500/30"
@@ -360,8 +360,8 @@ export default function EmployeesPage() {
                                                     }
                                                 }}
                                                 className={`px-2 py-1 text-xs rounded-full border transition-colors ${(newEmployee.work_days || []).includes(day)
-                                                        ? 'bg-indigo-100 border-indigo-200 text-indigo-700 dark:bg-indigo-900/40 dark:border-indigo-800 dark:text-indigo-300'
-                                                        : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
+                                                    ? 'bg-indigo-100 border-indigo-200 text-indigo-700 dark:bg-indigo-900/40 dark:border-indigo-800 dark:text-indigo-300'
+                                                    : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
                                                     }`}
                                             >
                                                 {day.slice(0, 3)}
@@ -378,7 +378,7 @@ export default function EmployeesPage() {
                                         value={newEmployee.role}
                                         onChange={e => setNewEmployee({ ...newEmployee, role: e.target.value })}
                                     >
-                                        <option value="associate">Associate</option>
+                                        <option value="staff">Staff</option>
                                         <option value="manager">Manager</option>
                                         <option value="owner">Owner</option>
                                     </select>
