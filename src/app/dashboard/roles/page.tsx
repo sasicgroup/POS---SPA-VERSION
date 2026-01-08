@@ -17,10 +17,11 @@ export default function RolesPage() {
 
     // Load from store on mount/change
     useEffect(() => {
-        if (activeStore?.rolePermissions) {
+        if (activeStore?.rolePermissions && Object.keys(activeStore.rolePermissions).length > 0) {
             setRolePermissions(activeStore.rolePermissions);
         } else {
-            setRolePermissions(DEFAULT_PERMISSIONS);
+            // Fallback to defaults (ensure not null)
+            setRolePermissions(DEFAULT_PERMISSIONS || {});
         }
     }, [activeStore]);
 
@@ -96,13 +97,16 @@ export default function RolesPage() {
     ];
 
     const handlePermissionToggle = (role: string, permissionId: string) => {
-        setRolePermissions((prev: any) => ({
-            ...prev,
-            [role]: {
-                ...prev[role],
-                [permissionId]: !prev[role][permissionId]
-            }
-        }));
+        setRolePermissions((prev: any) => {
+            const roleData = prev?.[role] || {};
+            return {
+                ...prev,
+                [role]: {
+                    ...roleData,
+                    [permissionId]: !roleData[permissionId]
+                }
+            };
+        });
     };
 
     const handleSavePermissions = async () => {
@@ -131,7 +135,7 @@ export default function RolesPage() {
 
     const isPermitted = (role: string, permissionId: string) => {
         if (role === 'owner') return true;
-        return rolePermissions[role]?.[permissionId] === true;
+        return rolePermissions?.[role]?.[permissionId] === true;
     };
 
     if (!activeStore || !user) return null;
@@ -223,9 +227,9 @@ export default function RolesPage() {
                         {/* Role Selector Sidebar */}
                         <div className="w-full lg:w-64 flex-shrink-0 space-y-2">
                             {/* ... Keep Existing Role Selector ... */}
-                            {['super_admin', 'admin', 'manager', 'staff'].map((roleStr) => {
-                                const roleId = roleStr; // simplification
-                                const labels: any = { super_admin: 'Super Admin', admin: 'Admin', manager: 'Manager', staff: 'Staff' };
+                            {['owner', 'manager', 'staff'].map((roleStr) => {
+                                const roleId = roleStr;
+                                const labels: Record<string, string> = { owner: 'Owner', manager: 'Manager', staff: 'Staff' };
                                 return (
                                     <button
                                         key={roleId}
