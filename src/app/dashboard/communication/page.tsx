@@ -15,7 +15,7 @@ import {
     Search,
     Bell
 } from 'lucide-react';
-import { sendNotification, getSMSConfig, updateSMSConfig, type SMSConfig, getSMSBalance, sendDirectMessage } from '@/lib/sms';
+import { sendNotification, getSMSConfig, updateSMSConfig, type SMSConfig, getSMSBalance, sendDirectMessage, loadSMSConfigFromDB } from '@/lib/sms';
 import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
 
@@ -27,17 +27,17 @@ export default function CommunicationPage() {
     const [recipientType, setRecipientType] = useState<'all' | 'group' | 'manual'>('all');
     const [config, setConfig] = useState<SMSConfig | null>(null);
 
-    useEffect(() => {
-        setConfig(getSMSConfig());
-    }, []);
-
-    // ... earlier code ...
     const [balance, setBalance] = useState<number>(0);
     const [recipientCount, setRecipientCount] = useState(0);
     const [isSending, setIsSending] = useState(false);
 
     useEffect(() => {
         const initData = async () => {
+            if (activeStore?.id) {
+                // Ensure latest config is loaded from DB
+                await loadSMSConfigFromDB(activeStore.id);
+            }
+
             setConfig(getSMSConfig());
 
             // Fetch Balance
@@ -45,11 +45,16 @@ export default function CommunicationPage() {
             setBalance(bal);
 
             // Fetch Recipient Count (Total Customers)
-            const { count } = await supabase.from('customers').select('*', { count: 'exact', head: true });
-            if (count) setRecipientCount(count);
+            if (activeStore?.id) {
+                const { count } = await supabase
+                    .from('customers')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('store_id', activeStore.id);
+                if (count) setRecipientCount(count);
+            }
         };
         initData();
-    }, []);
+    }, [activeStore]);
 
     // ... inside render ... 
 
