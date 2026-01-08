@@ -14,22 +14,29 @@ import {
     Check,
     Smartphone,
     Search,
-    Bell
+    Bell,
+    Clock
 } from 'lucide-react';
-import { sendNotification, getSMSConfig, updateSMSConfig, type SMSConfig, getSMSBalance, sendDirectMessage, loadSMSConfigFromDB } from '@/lib/sms';
+import { sendNotification, getSMSConfig, updateSMSConfig, type SMSConfig, getSMSBalance, sendDirectMessage, loadSMSConfigFromDB, getSMSHistory } from '@/lib/sms';
 import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
 
 export default function CommunicationPage() {
     const { activeStore } = useAuth();
     const { showToast } = useToast();
-    const [activeTab, setActiveTab] = useState<'compose' | 'templates' | 'automations'>('compose');
+    const [activeTab, setActiveTab] = useState<'compose' | 'templates' | 'automations' | 'history'>('compose');
     const [selectedChannel, setSelectedChannel] = useState<'sms' | 'whatsapp'>('sms');
     const [messageContent, setMessageContent] = useState('');
     const [recipientType, setRecipientType] = useState<'all' | 'group' | 'manual'>('all');
     const [config, setConfig] = useState<SMSConfig | null>(null);
 
     const [balance, setBalance] = useState<number>(0);
+
+    // History State
+    const [history, setHistory] = useState<any[]>([]);
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyLimit, setHistoryLimit] = useState(10);
+    const [historyTotal, setHistoryTotal] = useState(0);
     const [recipientCount, setRecipientCount] = useState(0);
     const [isSending, setIsSending] = useState(false);
 
@@ -57,6 +64,17 @@ export default function CommunicationPage() {
         };
         initData();
     }, [activeStore]);
+
+    useEffect(() => {
+        const loadHistory = async () => {
+            if (activeTab === 'history' && activeStore?.id) {
+                const { data, count } = await getSMSHistory(activeStore.id, historyPage, historyLimit);
+                setHistory(data);
+                setHistoryTotal(count || 0);
+            }
+        };
+        loadHistory();
+    }, [activeTab, historyPage, historyLimit, activeStore]);
 
     // ... inside render ... 
 
@@ -108,7 +126,7 @@ export default function CommunicationPage() {
     const [templates, setTemplates] = useState<any[]>([]);
 
 
-    const placeholders = ['{Name}', '{StoreName}', '{Points}', '{LastVisit}'];
+    const placeholders = ['{Name}', '{StoreName}', '{Points}', '{LastVisit}', '{Staff}', '{Receipt}'];
 
     if (!activeStore) return null;
 
@@ -129,7 +147,7 @@ export default function CommunicationPage() {
                 if (manualRecipients && manualRecipients.value) {
                     const phones = manualRecipients.value.split(',').map(p => p.trim()).filter(p => p.length > 0);
                     for (const phone of phones) {
-                        await sendDirectMessage(phone, messageContent, channels as any);
+                        await sendDirectMessage(phone, messageContent, channels as any, activeStore.id);
                         count++;
                     }
                 }
@@ -146,9 +164,10 @@ export default function CommunicationPage() {
                             // Basic placeholder replacement
                             let finalMsg = messageContent.replace('{Name}', cust.name).replace('{StoreName}', activeStore.name);
                             // Clean other unused
-                            finalMsg = finalMsg.replace('{Points}', '0').replace('{LastVisit}', 'N/A');
+                            finalMsg = finalMsg.replace('{Points}', '0').replace('{LastVisit}', 'N/A')
+                                .replace('{Staff}', 'N/A').replace('{Receipt}', 'N/A');
 
-                            await sendDirectMessage(cust.phone, finalMsg, channels as any);
+                            await sendDirectMessage(cust.phone, finalMsg, channels as any, activeStore.id);
                             count++;
                         }
                     }
@@ -439,7 +458,12 @@ export default function CommunicationPage() {
                                         onChange={(e) => setConfig({ ...config, templates: { ...config.templates, receipt: e.target.value } })}
                                         className="w-full h-24 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                     />
-                                    <p className="text-xs text-slate-400 mt-2">Available Variables: <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{Amount}`}</span> <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{Id}`}</span> <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{PointsEarned}`}</span> <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{TotalPoints}`}</span></p>
+                                    <textarea
+                                        value={config.templates.receipt}
+                                        onChange={(e) => setConfig({ ...config, templates: { ...config.templates, receipt: e.target.value } })}
+                                        className="w-full h-24 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                    <p className="text-xs text-slate-400 mt-2">Available Variables: <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{Amount}`}</span> <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{Receipt}`}</span> <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{PointsEarned}`}</span> <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{TotalPoints}`}</span> <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{Staff}`}</span></p>
                                 </div>
 
                                 <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">

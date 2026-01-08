@@ -10,7 +10,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
 
 export default function SalesPage() {
-    const { activeStore } = useAuth();
+    const { activeStore, user } = useAuth();
     const { products, isLoading, processSale } = useInventory();
     const { showToast } = useToast();
     const [cart, setCart] = useState<any[]>([]);
@@ -461,7 +461,9 @@ export default function SalesPage() {
                     customerPhone: customerPhone,
                     items: cart.length,
                     pointsEarned: pointsEarned,
-                    totalPoints: finalPoints
+                    totalPoints: finalPoints,
+                    staffName: user?.name,
+                    storeId: activeStore.id
                 });
 
             } else {

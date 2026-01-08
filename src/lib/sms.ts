@@ -199,6 +199,44 @@ const sendMetaWhatsApp = async (config: SMSConfig, phone: string, message: strin
     }
 };
 
+// --- Logging & History ---
+
+export const logSMS = async (phone: string, message: string, channel: 'sms' | 'whatsapp', status: 'sent' | 'failed', storeId?: string) => {
+    // Attempt to log to Supabase.
+    // Ensure you have a table 'sms_logs' with columns: id, created_at, phone, message, channel, status, store_id
+    try {
+        await supabase.from('sms_logs').insert({
+            phone,
+            message,
+            channel,
+            status,
+            store_id: storeId,
+            created_at: new Date().toISOString()
+        });
+    } catch (e) {
+        console.error("Failed to log SMS", e);
+    }
+};
+
+export const getSMSHistory = async (storeId: string, page: number = 1, limit: number = 10) => {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data, count, error } = await supabase
+        .from('sms_logs')
+        .select('*', { count: 'exact' })
+        .eq('store_id', storeId)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+    if (error) {
+        console.error("Error fetching SMS history", error);
+        return { data: [], count: 0 };
+    }
+
+    return { data, count };
+};
+
 export const sendNotification = async (type: 'welcome' | 'sale', data: any) => {
     // 1. Ensure config is loaded (Try memory, then DB)
     let config = getSMSConfig(); // This already tries localStorage and then global smsConfig
@@ -210,6 +248,7 @@ export const sendNotification = async (type: 'welcome' | 'sale', data: any) => {
 
     const { notifications } = config;
     const { owner, customer } = notifications;
+    const storeId = data.storeId;
 
     // --- Customer Notifications ---
     if (data.customerPhone) {
@@ -217,27 +256,28 @@ export const sendNotification = async (type: 'welcome' | 'sale', data: any) => {
         if (type === 'welcome') {
             msg = config.templates.welcome.replace('{Name}', data.customerName || 'Customer');
         } else if (type === 'sale') {
+            // Support {var} and {Var} for some consistency
             msg = config.templates.receipt
-                .replace('{Amount}', Number(data.amount).toFixed(2))
-                .replace('{Id}', (data.id || '').toString())
-                .replace('{PointsEarned}', (data.pointsEarned || '0').toString())
-                .replace('{TotalPoints}', (data.totalPoints || '0').toString());
+                .replace(/{Amount}/g, Number(data.amount).toFixed(2))
+                .replace(/{Id}/g, (data.id || '').toString())
+                .replace(/{receipt}/g, (data.id || '').toString())
+                .replace(/{Receipt}/g, (data.id || '').toString())
+                .replace(/{PointsEarned}/g, (data.pointsEarned || '0').toString())
+                .replace(/{TotalPoints}/g, (data.totalPoints || '0').toString())
+                .replace(/{Name}/g, data.customerName || 'Customer')
+                .replace(/{name}/g, data.customerName || 'Customer')
+                .replace(/{staff-name}/g, data.staffName || 'Staff');
         }
 
         console.log(`[SMS] Sending ${type} to customer: ${data.customerPhone}`);
 
         if (msg) {
-            if (customer.sms) await sendDirectMessage(data.customerPhone, msg, ['sms']);
-            if (customer.whatsapp) await sendDirectMessage(data.customerPhone, msg, ['whatsapp']);
+            if (customer.sms) await sendDirectMessage(data.customerPhone, msg, ['sms'], storeId);
+            if (customer.whatsapp) await sendDirectMessage(data.customerPhone, msg, ['whatsapp'], storeId);
         }
     }
 
     // --- Owner Notifications ---
-    // Assuming ownerPhone is available in data for owner notifications. 
-    // If not, we might need to fetch store settings.
-    // For now, we only support if data explicitly has 'ownerPhone' or checks 'sms.ts' notification settings.
-    // NOTE: Owner phone logic is currently dependent on 'data.ownerPhone' being passed by caller
-    // OR we could load it from active store settings if we had access here.
     if (data.ownerPhone) {
         let msg = '';
         if (type === 'sale') {
@@ -249,31 +289,36 @@ export const sendNotification = async (type: 'welcome' | 'sale', data: any) => {
         }
 
         if (msg) {
-            if (owner.sms) await sendDirectMessage(data.ownerPhone, msg, ['sms']);
-            if (owner.whatsapp) await sendDirectMessage(data.ownerPhone, msg, ['whatsapp']);
+            if (owner.sms) await sendDirectMessage(data.ownerPhone, msg, ['sms'], storeId);
+            if (owner.whatsapp) await sendDirectMessage(data.ownerPhone, msg, ['whatsapp'], storeId);
         }
     }
 
     return true;
 };
 
-export const sendDirectMessage = async (phone: string, message: string, channels: ('sms' | 'whatsapp')[] = ['sms', 'whatsapp']) => {
+export const sendDirectMessage = async (phone: string, message: string, channels: ('sms' | 'whatsapp')[] = ['sms', 'whatsapp'], storeId?: string) => {
     const config = getSMSConfig();
 
     console.log(`[SMS] Direct Message to ${phone} via ${channels.join(', ')}`);
 
     // Send SMS
     if (channels.includes('sms')) {
+        let success = false;
         if (config.provider === 'hubtel') {
             await sendHubtelSMS(config, phone, message);
+            success = true;
         } else if (config.provider === 'mnotify') {
             await sendMNotifySMS(config, phone, message);
+            success = true;
         }
+        await logSMS(phone, message, 'sms', success ? 'sent' : 'failed', storeId);
     }
 
     // Send WhatsApp
     if (channels.includes('whatsapp') && config.meta?.accessToken) {
         await sendMetaWhatsApp(config, phone, message);
+        await logSMS(phone, message, 'whatsapp', 'sent', storeId);
     }
 };
 
