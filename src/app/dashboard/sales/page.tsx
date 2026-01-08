@@ -406,7 +406,8 @@ export default function SalesPage() {
 
         const pointsEarned = Math.floor(grandTotal);
         const finalPoints = redeemPoints ? (loyaltyPoints - 100) + pointsEarned : loyaltyPoints + pointsEarned;
-        const isNewCustomer = customerPhone.length >= 10 && customerName && loyaltyPoints === 0;
+        // Fix: Use existingCustomer state to check if they are actually new
+        const isNewCustomer = customerPhone.length >= 10 && customerName && !existingCustomer;
 
         // --- Update Customer Loyalty Points & Stats ---
         if (customerPhone) {
