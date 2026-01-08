@@ -147,9 +147,8 @@ ADD COLUMN IF NOT EXISTS payment_settings jsonb DEFAULT '{
     "default_provider": "hubtel",
     "hubtel": {
         "enabled": false,
-        "client_id": "",
-        "client_secret": "",
-        "merchant_account": ""
+        "api_id": "",
+        "api_key": ""
     },
     "paystack": {
         "enabled": false,
