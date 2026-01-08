@@ -1,3 +1,5 @@
+'use client';
+
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useInventory } from '@/lib/inventory-context';
