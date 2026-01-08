@@ -58,6 +58,7 @@ export default function SalesPage() {
 
     // Audio Refs
     const beepAudio = typeof Audio !== "undefined" ? new Audio('https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3') : null;
+    const errorAudio = typeof Audio !== "undefined" ? new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3') : null;
     const successAudio = typeof Audio !== "undefined" ? new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3') : null;
 
     const playBeep = () => {
@@ -162,6 +163,13 @@ export default function SalesPage() {
         });
     };
 
+    const playError = () => {
+        if (errorAudio) {
+            errorAudio.currentTime = 0;
+            errorAudio.play().catch(e => console.error("Audio play failed", e));
+        }
+    }
+
     const handleScan = (query: string) => {
         if (!query) return;
 
@@ -187,6 +195,7 @@ export default function SalesPage() {
                 }
             }
         } else {
+            playError();
             showToast('error', 'Product not found');
         }
     };
