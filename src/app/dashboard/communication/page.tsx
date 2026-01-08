@@ -15,7 +15,8 @@ import {
     Smartphone,
     Search,
     Bell,
-    Clock
+    Clock,
+    AlertTriangle
 } from 'lucide-react';
 import { sendNotification, getSMSConfig, updateSMSConfig, type SMSConfig, getSMSBalance, sendDirectMessage, loadSMSConfigFromDB, getSMSHistory } from '@/lib/sms';
 import { supabase } from '@/lib/supabase';
@@ -492,6 +493,94 @@ export default function CommunicationPage() {
                                         placeholder="New sale: GHS {Amount} by {Name}..."
                                     />
                                     <p className="text-xs text-slate-400 mt-2">Available Variables: <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{Amount}`}</span> <span className="font-mono bg-slate-200 dark:bg-slate-800 px-1 rounded">{`{Name}`}</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'history' && (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Communication Logs</h2>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">History of all sent messages.</p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">Total Sent: {historyTotal}</div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+                                {history.length === 0 ? (
+                                    <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+                                        No messages found in history.
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-50 dark:bg-slate-800/50">
+                                                <tr>
+                                                    <th className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">Date/Time</th>
+                                                    <th className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">Recipient</th>
+                                                    <th className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">Channel</th>
+                                                    <th className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">Message</th>
+                                                    <th className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                {history.map((log: any) => (
+                                                    <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                                                        <td className="px-6 py-4 whitespace-nowrap text-slate-600 dark:text-slate-400">
+                                                            {new Date(log.created_at).toLocaleString()}
+                                                        </td>
+                                                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
+                                                            {log.phone}
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${log.channel === 'whatsapp'
+                                                                ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                                                : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
+                                                                }`}>
+                                                                {log.channel === 'whatsapp' ? <MessageSquare className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
+                                                                {log.channel === 'sms' ? 'SMS' : 'WhatsApp'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={log.message}>
+                                                            {log.message}
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${log.status === 'sent'
+                                                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                                                                : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                                                                }`}>
+                                                                {log.status === 'sent' ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                                                                {log.status === 'sent' ? 'Sent' : 'Failed'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+
+                                {/* Pagination Controls (Simple) */}
+                                <div className="flex justify-between items-center p-4 border-t border-slate-100 dark:border-slate-800">
+                                    <button
+                                        disabled={historyPage === 1}
+                                        onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                                        className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                                    >
+                                        Previous
+                                    </button>
+                                    <span className="text-sm text-slate-500">Page {historyPage}</span>
+                                    <button
+                                        disabled={history.length < historyLimit}
+                                        onClick={() => setHistoryPage(p => p + 1)}
+                                        className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                                    >
+                                        Next
+                                    </button>
                                 </div>
                             </div>
                         </div>

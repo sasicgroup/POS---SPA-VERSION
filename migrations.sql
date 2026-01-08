@@ -170,3 +170,17 @@ CREATE TABLE IF NOT EXISTS public.loyalty_programs (
     UNIQUE(store_id)
 );
 
+
+-- 17. Create SMS Logs Table
+CREATE TABLE IF NOT EXISTS public.sms_logs (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    store_id uuid REFERENCES public.stores(id) ON DELETE CASCADE,
+    phone text NOT NULL,
+    message text NOT NULL,
+    channel text DEFAULT 'sms', -- 'sms', 'whatsapp'
+    status text DEFAULT 'sent', -- 'sent', 'failed'
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sms_logs_store_id ON public.sms_logs(store_id);
+CREATE INDEX IF NOT EXISTS idx_sms_logs_created_at ON public.sms_logs(created_at DESC);
