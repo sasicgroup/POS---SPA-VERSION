@@ -32,10 +32,15 @@ import {
 
 import { ToastProvider } from '@/lib/toast-context';
 import { NotificationsProvider, useNotifications } from '@/lib/notifications-context';
+import { useActivityTracker } from '@/lib/activity-tracker';
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
     const { user, logout, activeStore, stores, switchStore, createStore, hasPermission } = useAuth();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+
+    // Automatically track page visits
+    useActivityTracker();
+
     const router = useRouter();
     const pathname = usePathname();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
