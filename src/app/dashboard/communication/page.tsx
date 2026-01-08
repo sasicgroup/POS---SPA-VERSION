@@ -235,6 +235,19 @@ export default function CommunicationPage() {
                         </div>
                     </button>
 
+                    <button
+                        onClick={() => setActiveTab('history')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'history'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                            : 'bg-white text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'}`}
+                    >
+                        <Clock className="h-5 w-5" />
+                        <div className="text-left">
+                            <div className="font-semibold">History</div>
+                            <div className="text-xs opacity-80">View Sent Logs</div>
+                        </div>
+                    </button>
+
                     <div className="mt-8 rounded-xl bg-indigo-50 p-4 dark:bg-indigo-900/20">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400">
