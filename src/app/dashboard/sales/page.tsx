@@ -6,6 +6,7 @@ import { sendNotification } from '@/lib/sms';
 import { useToast } from '@/lib/toast-context';
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt, RotateCcw, Scan, Camera, Tag, CheckSquare, Square, X, Users, Edit2, AlertTriangle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 
 export default function SalesPage() {
     const { activeStore } = useAuth();
@@ -72,6 +73,67 @@ export default function SalesPage() {
             successAudio.play().catch(e => console.error("Audio play failed", e));
         }
     }
+
+    // Scanner Logic
+    const [cameraError, setCameraError] = useState('');
+    const scannerRef = useRef<Html5Qrcode | null>(null);
+
+    useEffect(() => {
+        if (isScanning) {
+            setCameraError('');
+            // Small delay to ensure DOM is ready
+            setTimeout(() => {
+                // Remove existing instance if any (safety check)
+                if (scannerRef.current) {
+                    try {
+                        scannerRef.current.clear();
+                    } catch (e) { console.error("Clear error", e); }
+                }
+
+                // Create new instance
+                const html5QrCode = new Html5Qrcode("sales-scanner-reader");
+                scannerRef.current = html5QrCode;
+
+                const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    config,
+                    (decodedText, decodedResult) => {
+                        handleScan(decodedText);
+                        // Optional: Keep scanning or close? 
+                        // If auto-add is on, maybe just beep and keep scanning?
+                        // For now let's behave like inventory and close it to prevent accidental double-scans
+                        setIsScanning(false);
+                    },
+                    (errorMessage) => {
+                        // ignore errors for each frame
+                    }
+                ).catch(err => {
+                    console.error("Camera start error:", err);
+                    setCameraError("Unable to access camera. Please ensure you have granted permission.");
+                });
+            }, 100);
+        } else {
+            if (scannerRef.current) {
+                scannerRef.current.stop().then(() => {
+                    scannerRef.current?.clear();
+                    scannerRef.current = null;
+                }).catch(err => console.error("Stop failed", err));
+            }
+        }
+
+        return () => {
+            if (scannerRef.current) {
+                if (scannerRef.current.isScanning) {
+                    scannerRef.current.stop().then(() => {
+                        scannerRef.current?.clear();
+                    }).catch(console.error);
+                }
+            }
+        };
+    }, [isScanning]);
+
 
     const addToCart = (product: any) => {
         playBeep();
@@ -335,13 +397,8 @@ export default function SalesPage() {
                             </button>
                         </div>
                         <div className="flex-1 min-h-0 flex items-center justify-center relative bg-slate-950 rounded-xl overflow-hidden mb-6">
-                            {/* Simulated Camera Feed */}
-                            <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-transparent via-indigo-500/10 to-transparent"></div>
-                            <div className="text-center text-slate-400">
-                                <Scan className="mx-auto h-16 w-16 mb-2 opacity-50" />
-                                <p>Point camera at barcode</p>
-                            </div>
-                            <div className="absolute left-1/2 top-1/2 h-48 w-64 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-indigo-500/50"></div>
+                            {/* Real Camera Feed */}
+                            <div id="sales-scanner-reader" className="w-full h-full"></div>
                         </div>
                         <div className="mt-auto grid grid-cols-1 md:grid-cols-2 gap-4 flex-shrink-0">
                             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800">
