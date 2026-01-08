@@ -218,7 +218,7 @@ export const sendNotification = async (type: 'welcome' | 'sale', data: any) => {
             msg = config.templates.welcome.replace('{Name}', data.customerName || 'Customer');
         } else if (type === 'sale') {
             msg = config.templates.receipt
-                .replace('{Amount}', data.amount.toFixed(2))
+                .replace('{Amount}', Number(data.amount).toFixed(2))
                 .replace('{Id}', (data.id || '').toString())
                 .replace('{PointsEarned}', (data.pointsEarned || '0').toString())
                 .replace('{TotalPoints}', (data.totalPoints || '0').toString());
@@ -243,7 +243,7 @@ export const sendNotification = async (type: 'welcome' | 'sale', data: any) => {
         if (type === 'sale') {
             const template = config.templates.ownerSale || "New sale: GHS {Amount} by {Name}.";
             msg = template
-                .replace('{Amount}', data.amount.toFixed(2))
+                .replace('{Amount}', Number(data.amount).toFixed(2))
                 .replace('{Name}', data.customerName || 'Customer')
                 .replace('{TotalOrders}', (data.totalOrders || '0').toString());
         }
