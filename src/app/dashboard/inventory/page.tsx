@@ -543,7 +543,7 @@ export default function InventoryPage() {
             </div>
 
             {/* Product List - List View */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden dark:bg-slate-800 dark:border-slate-700 pb-20 lg:pb-0">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto dark:bg-slate-800 dark:border-slate-700 pb-20 lg:pb-0">
                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                     <thead className="bg-slate-50 dark:bg-slate-800/50">
                         <tr>
