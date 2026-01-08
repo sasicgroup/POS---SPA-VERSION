@@ -100,6 +100,20 @@ export default function SalesPage() {
     // Scanner Logic - must be declared before early return
     const [cameraError, setCameraError] = useState('');
     const scannerRef = useRef<Html5Qrcode | null>(null);
+    const [registerId, setRegisterId] = useState('Main-01');
+
+    useEffect(() => {
+        const storedRegister = localStorage.getItem('sms_register_id');
+        if (storedRegister) setRegisterId(storedRegister);
+    }, []);
+
+    const handleEditRegister = () => {
+        const newId = prompt("Enter Register/Terminal Name:", registerId);
+        if (newId && newId.trim()) {
+            setRegisterId(newId.trim());
+            localStorage.setItem('sms_register_id', newId.trim());
+        }
+    };
 
     // Scanner useEffect - must be before early return
     useEffect(() => {
@@ -114,60 +128,58 @@ export default function SalesPage() {
                     } catch (e) { console.error("Clear error", e); }
                 }
 
-                // Create new instance
-                const html5QrCode = new Html5Qrcode("sales-scanner-reader");
-                scannerRef.current = html5QrCode;
+                if (document.getElementById("sales-scanner-reader")) {
+                    try {
+                        const html5QrCode = new Html5Qrcode("sales-scanner-reader");
+                        scannerRef.current = html5QrCode;
 
-                const config = { fps: 10, qrbox: { width: 200, height: 200 }, aspectRatio: 1.0 };
+                        const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
 
-                html5QrCode.start(
-                    { facingMode: "environment" },
-                    config,
-                    async (decodedText, decodedResult) => {
-                        // Stop scanning first to prevent errors when unmounting
-                        if (scannerRef.current && scannerRef.current.isScanning) {
-                            try {
-                                await scannerRef.current.stop();
-                                scannerRef.current.clear();
-                            } catch (e) {
-                                console.error("Stop error", e);
+                        html5QrCode.start(
+                            { facingMode: "environment" },
+                            config,
+                            async (decodedText, decodedResult) => {
+                                // Stop scanning first
+                                if (scannerRef.current && scannerRef.current.isScanning) {
+                                    try {
+                                        await scannerRef.current.stop();
+                                        scannerRef.current.clear();
+                                    } catch (e) { console.error("Stop error", e); }
+                                }
+                                handleScan(decodedText);
+                                setIsScanning(false);
+                            },
+                            (errorMessage) => {
+                                // ignore errors
                             }
-                        }
-
-                        handleScan(decodedText);
-                        setIsScanning(false);
-                    },
-                    (errorMessage) => {
-                        // ignore errors for each frame
+                        ).catch(err => {
+                            console.error("Camera start error:", err);
+                            setCameraError("Unable to access camera. Please check permissions.");
+                        });
+                    } catch (e) {
+                        console.error("Scanner init error", e);
+                        setCameraError("Failed to initialize scanner.");
                     }
-                ).catch(err => {
-                    console.error("Camera start error:", err);
-                    setCameraError("Unable to access camera. Please ensure you have granted permission.");
-                });
-            }, 100);
+                }
+            }, 300); // 300ms delay to ensure Modal animation completes and DOM is ready
         } else {
-            // Cleanup if closed via button (state change triggered not by scan success)
+            // Cleanup immediately if closed
             if (scannerRef.current) {
-                // We don't wait for promise here as we might be unmounting, but we try
-                try {
-                    if (scannerRef.current.isScanning) {
-                        scannerRef.current.stop().then(() => {
-                            scannerRef.current?.clear();
-                        }).catch(err => console.error("Stop failed", err));
-                    }
-                } catch (e) { console.error(e); }
+                if (scannerRef.current.isScanning) {
+                    scannerRef.current.stop().catch(e => console.error(e));
+                }
+                scannerRef.current.clear();
+                scannerRef.current = null;
             }
         }
 
         return () => {
-            // Cleanup on unmount
+            // Cleanup on unmount/re-run
             if (scannerRef.current) {
-                try {
-                    if (scannerRef.current.isScanning) {
-                        scannerRef.current.stop().catch(console.error);
-                    }
-                    scannerRef.current.clear();
-                } catch (e) { console.error("Cleanup error", e); }
+                if (scannerRef.current.isScanning) {
+                    scannerRef.current.stop().catch(e => console.error(e));
+                }
+                scannerRef.current.clear();
             }
         };
     }, [isScanning]);
@@ -574,7 +586,12 @@ export default function SalesPage() {
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">Point of Sale</h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Register: <span className="font-semibold text-indigo-600">Main-01</span></p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            Register:
+                            <button onClick={handleEditRegister} className="font-semibold text-indigo-600 hover:underline flex items-center gap-1">
+                                {registerId} <Edit2 className="h-3 w-3" />
+                            </button>
+                        </p>
                     </div>
                     <div className="flex gap-2 sm:gap-3">
                         {/* Removed scan mode toggle - POS always adds to cart */}
