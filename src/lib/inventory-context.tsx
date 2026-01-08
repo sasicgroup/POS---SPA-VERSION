@@ -51,6 +51,18 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategories, setActiveCategories] = useState<string[]>(['All']);
 
+    // Cache state
+    const [productsCache, setProductsCache] = useState<{
+        data: Product[];
+        timestamp: number | null;
+        storeId: string | null;
+    }>({
+        data: [],
+        timestamp: null,
+        storeId: null
+    });
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
     // UI states
     const [businessTypes, setBusinessTypes] = useState<string[]>([]);
     const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -81,7 +93,20 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (activeStore?.id) {
-            fetchProducts();
+            // Check if we have valid cache for this store
+            const isCacheValid =
+                productsCache.storeId === activeStore.id &&
+                productsCache.timestamp &&
+                Date.now() - productsCache.timestamp < CACHE_TTL;
+
+            if (isCacheValid) {
+                console.log('[Inventory] Using cached products');
+                setProducts(productsCache.data);
+                setIsLoading(false);
+            } else {
+                console.log('[Inventory] Cache miss or stale, fetching fresh data');
+                fetchProducts();
+            }
         } else {
             setProducts([]);
             setIsLoading(false); // Ensure loading stops when no store
@@ -116,6 +141,14 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                     image: p.image || ''
                 }));
                 setProducts(mappedProducts);
+
+                // Update cache
+                setProductsCache({
+                    data: mappedProducts,
+                    timestamp: Date.now(),
+                    storeId: activeStore.id
+                });
+
                 setIsLoading(false);
             }
         } catch (err: any) {
@@ -167,6 +200,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 image: data.image || ''
             };
             setProducts(prev => prev.map(p => p.id === tempId ? mappedProduct : p));
+
+            // Invalidate cache to force fresh fetch next time
+            setProductsCache(prev => ({ ...prev, timestamp: null }));
         }
     };
 
@@ -191,6 +227,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         if (error) {
             console.error("Error updating product:", error);
             fetchProducts();
+        } else {
+            // Invalidate cache
+            setProductsCache(prev => ({ ...prev, timestamp: null }));
         }
     };
 
@@ -203,6 +242,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         if (error) {
             console.error("Error deleting product:", error);
             fetchProducts();
+        } else {
+            // Invalidate cache
+            setProductsCache(prev => ({ ...prev, timestamp: null }));
         }
     };
 
