@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/lib/toast-context';
 import { useState } from 'react';
 import {
     MessageSquare,
@@ -21,6 +22,7 @@ import { useEffect } from 'react';
 
 export default function CommunicationPage() {
     const { activeStore } = useAuth();
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'compose' | 'templates' | 'automations'>('compose');
     const [selectedChannel, setSelectedChannel] = useState<'sms' | 'whatsapp'>('sms');
     const [messageContent, setMessageContent] = useState('');
@@ -96,9 +98,9 @@ export default function CommunicationPage() {
     const handleSaveConfig = () => {
         if (config && activeStore?.id) {
             updateSMSConfig(config, activeStore.id);
-            alert('Settings Saved Successfully!');
+            showToast('success', 'Settings Saved Successfully!');
         } else {
-            alert('Error: No active store found. Cannot save settings.');
+            showToast('error', 'Error: No active store found. Cannot save settings.');
         }
     };
 
@@ -153,11 +155,11 @@ export default function CommunicationPage() {
                 }
             }
 
-            alert(`Successfully sent ${selectedChannel.toUpperCase()} to ${count} recipients.`);
+            showToast('success', `Successfully sent ${selectedChannel.toUpperCase()} to ${count} recipients.`);
             setMessageContent('');
         } catch (e) {
             console.error("Sending failed", e);
-            alert("Failed to send broadcast. Check console.");
+            showToast('error', "Failed to send broadcast. Check console.");
         } finally {
             setIsSending(false);
         }
