@@ -39,7 +39,12 @@ export default function SalesPage() {
 
     // Save Cart to LocalStorage
     useEffect(() => {
-        localStorage.setItem('sms_cart', JSON.stringify(cart));
+        try {
+            localStorage.setItem('sms_cart', JSON.stringify(cart));
+        } catch (error) {
+            console.error("Failed to save cart to local storage:", error);
+            // Optionally clear old data or warn user 
+        }
     }, [cart]);
 
     const [searchQuery, setSearchQuery] = useState('');
