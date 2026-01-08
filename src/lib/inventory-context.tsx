@@ -88,7 +88,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         }
     }, [activeStore?.id]);
 
-    const fetchProducts = async () => {
+    const fetchProducts = async (retry = true) => {
         if (!activeStore?.id) {
             console.log('[Inventory] No active store, stopping load');
             setIsLoading(false);
@@ -105,10 +105,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
             if (error) {
                 console.error('[Inventory] Error fetching products:', error);
-                setProducts([]);
+                throw error;
             } else if (data) {
                 console.log('[Inventory] Fetched products:', data.length);
-                // Map database snake_case to frontend camelCase
                 const mappedProducts = data.map((p: any) => ({
                     ...p,
                     costPrice: p.cost_price || 0,
@@ -118,12 +117,23 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 }));
                 setProducts(mappedProducts);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('[Inventory] Unexpected error fetching products:', err);
-            setProducts([]);
+            // Simple retry logic
+            if (retry) {
+                console.log('[Inventory] Retrying fetch in 2s...');
+                setTimeout(() => fetchProducts(false), 2000);
+            } else {
+                setProducts([]);
+            }
         } finally {
-            console.log('[Inventory] Fetch complete, setting loading to false');
-            setIsLoading(false);
+            if (!retry) {
+                // Only finish loading if we aren't retrying
+                setIsLoading(false);
+            } else {
+                // If success (no catch), finish loading
+                setIsLoading(false);
+            }
         }
     };
 
