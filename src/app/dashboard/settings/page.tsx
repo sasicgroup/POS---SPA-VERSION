@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useInventory } from '@/lib/inventory-context';
 import { getSMSConfig, updateSMSConfig, SMSConfig } from '@/lib/sms';
-import { getPaymentSettings, savePaymentSettings, PaymentSettings } from '@/lib/payment-settings';
+
 import { useToast } from '@/lib/toast-context';
 import { useState, useEffect } from 'react';
 import {
@@ -56,22 +56,9 @@ export default function SettingsPage() {
     });
     const [isEditingProfile, setIsEditingProfile] = useState(false);
 
-    // Payment Settings State
-    const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
-        default_provider: 'hubtel',
-        hubtel: { enabled: false, api_id: '', api_key: '' },
-        paystack: { enabled: false, public_key: '', secret_key: '' }
-    });
 
-    useEffect(() => {
-        const loadPaymentSettings = async () => {
-            if (activeStore?.id) {
-                const settings = await getPaymentSettings(activeStore.id);
-                setPaymentSettings(settings);
-            }
-        };
-        loadPaymentSettings();
-    }, [activeStore]);
+
+
 
     const handleUpdateProfile = async () => {
         if (!user?.id) return;
@@ -98,16 +85,7 @@ export default function SettingsPage() {
         }
     };
 
-    const handleSavePaymentSettings = async () => {
-        if (!activeStore?.id) return;
 
-        const success = await savePaymentSettings(activeStore.id, paymentSettings);
-        if (success) {
-            showToast('success', 'Payment settings saved successfully!');
-        } else {
-            showToast('error', 'Failed to save payment settings');
-        }
-    };
 
     // Team Management State
     const [showInviteModal, setShowInviteModal] = useState(false);
@@ -180,7 +158,7 @@ export default function SettingsPage() {
         { id: 'profile', label: 'My Profile', icon: Users },
         { id: 'products', label: 'Product Settings', icon: Package },
         { id: 'users', label: 'Team Members', icon: Users },
-        { id: 'payments', label: 'Payments', icon: CreditCard },
+
         { id: 'sms', label: 'SMS & Notifications', icon: MessageSquare },
     ];
 
@@ -484,183 +462,7 @@ export default function SettingsPage() {
                         </div>
                     )}
 
-                    {activeTab === 'payments' && (
-                        <div className="space-y-6">
-                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
 
-                                {/* Provider Selector */}
-                                <div className="mb-8 p-4 bg-slate-50 rounded-xl dark:bg-slate-800/50">
-                                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Active MoMo Provider</h3>
-                                    <div className="flex gap-4">
-                                        <label className={`flex-1 flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-all ${paymentSettings.default_provider === 'hubtel'
-                                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
-                                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                                            }`}>
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${paymentSettings.default_provider === 'hubtel' ? 'border-indigo-600' : 'border-slate-400'
-                                                    }`}>
-                                                    {paymentSettings.default_provider === 'hubtel' && <div className="w-2 h-2 rounded-full bg-indigo-600" />}
-                                                </div>
-                                                <span className="font-medium">Hubtel</span>
-                                            </div>
-                                            <input
-                                                type="radio"
-                                                name="provider"
-                                                value="hubtel"
-                                                checked={paymentSettings.default_provider === 'hubtel'}
-                                                onChange={() => setPaymentSettings({ ...paymentSettings, default_provider: 'hubtel' })}
-                                                className="hidden"
-                                            />
-                                        </label>
-
-                                        <label className={`flex-1 flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-all ${paymentSettings.default_provider === 'paystack'
-                                            ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
-                                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                                            }`}>
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${paymentSettings.default_provider === 'paystack' ? 'border-indigo-600' : 'border-slate-400'
-                                                    }`}>
-                                                    {paymentSettings.default_provider === 'paystack' && <div className="w-2 h-2 rounded-full bg-indigo-600" />}
-                                                </div>
-                                                <span className="font-medium">Paystack</span>
-                                            </div>
-                                            <input
-                                                type="radio"
-                                                name="provider"
-                                                value="paystack"
-                                                checked={paymentSettings.default_provider === 'paystack'}
-                                                onChange={() => setPaymentSettings({ ...paymentSettings, default_provider: 'paystack' })}
-                                                className="hidden"
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
-
-                                {/* Hubtel Configuration */}
-                                {paymentSettings.default_provider === 'hubtel' && (
-                                    <div className="animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div>
-                                                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Hubtel Configuration</h2>
-                                                <p className="text-sm text-slate-500 mt-1">Configure Hubtel MoMo payments</p>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={paymentSettings.hubtel.enabled}
-                                                    onChange={(e) => setPaymentSettings({
-                                                        ...paymentSettings,
-                                                        hubtel: { ...paymentSettings.hubtel, enabled: e.target.checked }
-                                                    })}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-                                                <span className="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300">
-                                                    {paymentSettings.hubtel.enabled ? 'Enabled' : 'Disabled'}
-                                                </span>
-                                            </label>
-                                        </div>
-
-                                        <div className="grid gap-6">
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">API ID</label>
-                                                <input
-                                                    type="text"
-                                                    value={paymentSettings.hubtel.api_id}
-                                                    onChange={(e) => setPaymentSettings({
-                                                        ...paymentSettings,
-                                                        hubtel: { ...paymentSettings.hubtel, api_id: e.target.value }
-                                                    })}
-                                                    placeholder="Enter your Hubtel API ID"
-                                                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">API Key</label>
-                                                <input
-                                                    type="password"
-                                                    value={paymentSettings.hubtel.api_key}
-                                                    onChange={(e) => setPaymentSettings({
-                                                        ...paymentSettings,
-                                                        hubtel: { ...paymentSettings.hubtel, api_key: e.target.value }
-                                                    })}
-                                                    placeholder="Enter your Hubtel API Key"
-                                                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Paystack Configuration */}
-                                {paymentSettings.default_provider === 'paystack' && (
-                                    <div className="animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div>
-                                                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Paystack Configuration</h2>
-                                                <p className="text-sm text-slate-500 mt-1">Configure Paystack MoMo payments</p>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={paymentSettings.paystack.enabled}
-                                                    onChange={(e) => setPaymentSettings({
-                                                        ...paymentSettings,
-                                                        paystack: { ...paymentSettings.paystack, enabled: e.target.checked }
-                                                    })}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
-                                                <span className="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300">
-                                                    {paymentSettings.paystack.enabled ? 'Enabled' : 'Disabled'}
-                                                </span>
-                                            </label>
-                                        </div>
-
-                                        <div className="grid gap-6">
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Secret Key</label>
-                                                <input
-                                                    type="password"
-                                                    value={paymentSettings.paystack.secret_key}
-                                                    onChange={(e) => setPaymentSettings({
-                                                        ...paymentSettings,
-                                                        paystack: { ...paymentSettings.paystack, secret_key: e.target.value }
-                                                    })}
-                                                    placeholder="Enter your Paystack Secret Key"
-                                                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Public Key (Optional)</label>
-                                                <input
-                                                    type="text"
-                                                    value={paymentSettings.paystack.public_key}
-                                                    onChange={(e) => setPaymentSettings({
-                                                        ...paymentSettings,
-                                                        paystack: { ...paymentSettings.paystack, public_key: e.target.value }
-                                                    })}
-                                                    placeholder="Enter your Paystack Public Key"
-                                                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-                                    <button
-                                        onClick={handleSavePaymentSettings}
-                                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
-                                    >
-                                        Save Payment Settings
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Invite/Edit Modal */}
                     {showInviteModal && (

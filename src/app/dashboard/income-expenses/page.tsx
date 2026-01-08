@@ -13,12 +13,14 @@ import {
     ArrowUpRight,
     ArrowDownRight,
     DollarSign,
-    MoreHorizontal
+    MoreHorizontal,
+    TrendingUp
 } from 'lucide-react';
 
-export default function ExpensesPage() {
+export default function IncomeExpensesPage() {
     const { activeStore } = useAuth();
     const [expenses, setExpenses] = useState<any[]>([]);
+    const [income, setIncome] = useState(0);
     const [loading, setLoading] = useState(true);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -35,20 +37,60 @@ export default function ExpensesPage() {
 
     useEffect(() => {
         if (activeStore?.id) {
-            fetchExpenses();
+            fetchData();
         }
     }, [activeStore]);
 
-    const fetchExpenses = async () => {
+    const fetchData = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('expenses')
-            .select('*')
-            .eq('store_id', activeStore?.id)
-            .order('date', { ascending: false });
+        try {
+            // 1. Fetch Expenses
+            const { data: expensesData } = await supabase
+                .from('expenses')
+                .select('*')
+                .eq('store_id', activeStore?.id)
+                .order('date', { ascending: false });
 
-        if (data) setExpenses(data);
-        setLoading(false);
+            if (expensesData) setExpenses(expensesData);
+
+            // 2. Fetch Sales & Calculate Income (Gross Profit)
+            // Income = Total Revenue - Total Cost of Goods Sold
+            // We need sale items to calculate this
+            const { data: salesData, error: salesError } = await supabase
+                .from('sales')
+                .select(`
+                    id,
+                    sale_items (
+                        quantity,
+                        price_at_sale,
+                        product:products (
+                            cost_price
+                        )
+                    )
+                `)
+                .eq('store_id', activeStore?.id);
+
+            if (salesData) {
+                let totalProfit = 0;
+                salesData.forEach((sale: any) => {
+                    sale.sale_items?.forEach((item: any) => {
+                        const quantity = item.quantity || 0;
+                        const sellingPrice = item.price_at_sale || 0;
+                        const costPrice = item.product?.cost_price || 0;
+
+                        // Profit = (Price - Cost) * Qty
+                        const itemProfit = (sellingPrice - costPrice) * quantity;
+                        totalProfit += itemProfit;
+                    });
+                });
+                setIncome(totalProfit);
+            }
+
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleAddExpense = async () => {
@@ -71,7 +113,7 @@ export default function ExpensesPage() {
                 description: '',
                 date: new Date().toISOString().split('T')[0]
             });
-            fetchExpenses();
+            fetchData();
         } else {
             alert('Failed to add expense');
         }
@@ -91,13 +133,14 @@ export default function ExpensesPage() {
     );
 
     const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const netProfit = income - totalExpenses;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Expenses</h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Track and manage your store operational costs.</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Income & Expenses</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Track your profits and manage operational costs.</p>
                 </div>
                 <button
                     onClick={() => setIsAddModalOpen(true)}
@@ -109,7 +152,23 @@ export default function ExpensesPage() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+                {/* Income Card */}
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-6 dark:border-emerald-900/50 dark:bg-emerald-900/20">
+                    <div className="flex items-center gap-4">
+                        <div className="rounded-full bg-emerald-100 p-3 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
+                            <TrendingUp className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Income (Gross Profit)</p>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                {activeStore?.currency} {income.toFixed(2)}
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Expenses Card */}
                 <div className="rounded-xl border border-rose-100 bg-rose-50 p-6 dark:border-rose-900/50 dark:bg-rose-900/20">
                     <div className="flex items-center gap-4">
                         <div className="rounded-full bg-rose-100 p-3 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400">
@@ -123,11 +182,33 @@ export default function ExpensesPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Net Profit Card */}
+                <div className={`rounded-xl border p-6 ${netProfit >= 0
+                    ? 'border-indigo-100 bg-indigo-50 dark:border-indigo-900/50 dark:bg-indigo-900/20'
+                    : 'border-orange-100 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-900/20'}`}>
+                    <div className="flex items-center gap-4">
+                        <div className={`rounded-full p-3 ${netProfit >= 0
+                            ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400'
+                            : 'bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400'}`}>
+                            <DollarSign className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className={`text-sm font-medium ${netProfit >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                                Net Profit
+                            </p>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                {activeStore?.currency} {netProfit.toFixed(2)}
+                            </h3>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Main Content */}
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+                    <h3 className="font-semibold text-slate-900 dark:text-white">Expense History</h3>
                     <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-800">
                         <Search className="h-4 w-4 text-slate-400" />
                         <input
@@ -155,7 +236,7 @@ export default function ExpensesPage() {
                             {loading ? (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                                        Loading expenses...
+                                        Loading data...
                                     </td>
                                 </tr>
                             ) : filteredExpenses.length === 0 ? (

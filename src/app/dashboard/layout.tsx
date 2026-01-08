@@ -81,7 +81,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         { name: 'Loyalty Program', href: '/dashboard/loyalty', icon: Award, permission: 'manage_customers' },
         { name: 'Customers', href: '/dashboard/customers', icon: Users, permission: 'view_customers' },
         { name: 'Employees', href: '/dashboard/employees', icon: CreditCard, permission: 'view_employees' },
-        { name: 'Expenses', href: '/dashboard/expenses', icon: Receipt, permission: 'view_analytics' },
+        { name: 'Income / Expenses', href: '/dashboard/income-expenses', icon: Receipt, permission: 'view_analytics' },
         { name: 'Reports', href: '/dashboard/reports', icon: TrendingUp, permission: 'view_analytics' },
         { name: 'Activity Logs', href: '/dashboard/logs', icon: Activity, permission: 'view_analytics' },
         { name: 'Roles & Permissions', href: '/dashboard/roles', icon: ShieldCheck, permission: 'view_roles' },
