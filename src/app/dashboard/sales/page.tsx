@@ -73,7 +73,7 @@ export default function SalesPage() {
                 const html5QrCode = new Html5Qrcode("sales-scanner-reader");
                 scannerRef.current = html5QrCode;
 
-                const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+                const config = { fps: 10, qrbox: { width: 200, height: 200 }, aspectRatio: 1.0 };
 
                 html5QrCode.start(
                     { facingMode: "environment" },
