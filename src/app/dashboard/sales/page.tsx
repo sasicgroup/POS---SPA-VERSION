@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useInventory } from '@/lib/inventory-context';
 import { loadSMSConfigFromDB, sendNotification } from '@/lib/sms';
 import { useToast } from '@/lib/toast-context';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt, RotateCcw, Scan, Camera, Tag, CheckSquare, Square, X, Users, Edit2, AlertTriangle } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Smartphone, Receipt, RotateCcw, Scan, Camera, Tag, CheckSquare, Square, X, Users, Edit2, AlertTriangle, Loader2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '@/lib/supabase';
@@ -53,6 +53,43 @@ export default function SalesPage() {
     const [customerPhone, setCustomerPhone] = useState('');
     const [loyaltyPoints, setLoyaltyPoints] = useState(0);
     const [redeemPoints, setRedeemPoints] = useState(false);
+    const [existingCustomer, setExistingCustomer] = useState<any>(null);
+    const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+
+    // Fetch Customer on Phone Change
+    useEffect(() => {
+        const fetchCustomer = async () => {
+            if (!activeStore?.id || customerPhone.length < 10) {
+                setExistingCustomer(null);
+                setLoyaltyPoints(0);
+                // Only clear name if we are dropping from a valid customer context or it was auto-filled
+                if (existingCustomer) setCustomerName('');
+                return;
+            }
+
+            setIsLoadingCustomer(true);
+            const { data } = await supabase
+                .from('customers')
+                .select('*')
+                .eq('store_id', activeStore.id)
+                .eq('phone', customerPhone)
+                .single();
+
+            if (data) {
+                setExistingCustomer(data);
+                setCustomerName(data.name);
+                setLoyaltyPoints(data.points || 0);
+            } else {
+                setExistingCustomer(null);
+                setCustomerName(''); // Clear to allow manual entry for new customer
+                setLoyaltyPoints(0);
+            }
+            setIsLoadingCustomer(false);
+        };
+
+        const debounce = setTimeout(fetchCustomer, 500);
+        return () => clearTimeout(debounce);
+    }, [customerPhone, activeStore]);
 
     const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
     const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
@@ -782,39 +819,52 @@ export default function SalesPage() {
                                             setCustomerPhone(val);
                                         }}
                                     />
+                                    {isLoadingCustomer && (
+                                        <div className="absolute right-3 top-2.5">
+                                            <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            {customerName && (
+                            {/* Existing Customer Found */}
+                            {existingCustomer && (
                                 <div className="animate-in fade-in slide-in-from-top-2">
                                     <div className="flex justify-between items-center mb-1">
-                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{customerName}</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                                                {customerName.charAt(0)}
+                                            </span>
+                                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{customerName}</span>
+                                        </div>
                                         <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{loyaltyPoints} Points</span>
                                     </div>
                                     {loyaltyPoints >= 100 && (
-                                        <label className="flex items-center gap-2 cursor-pointer">
+                                        <label className="flex items-center gap-2 cursor-pointer mt-2">
                                             <input
                                                 type="checkbox"
                                                 checked={redeemPoints}
                                                 onChange={(e) => setRedeemPoints(e.target.checked)}
                                                 className="h-3 w-3 rounded text-indigo-600 focus:ring-indigo-500"
                                             />
-                                            <span className="text-xs text-slate-600 dark:text-slate-400">Redeem 100 pts</span>
+                                            <span className="text-xs text-slate-600 dark:text-slate-400">Redeem 100 pts (Get GHS 5.00 off)</span>
                                         </label>
                                     )}
                                 </div>
                             )}
 
-                            {!customerName && customerPhone.length >= 10 && (
+                            {/* New Customer Input - Shown if phone is valid but no user found */}
+                            {!existingCustomer && customerPhone.length >= 10 && !isLoadingCustomer && (
                                 <div className="space-y-2 animate-in fade-in">
                                     <div className="text-xs text-slate-500 flex items-center gap-1">
-                                        <Plus className="h-3 w-3" /> New customer
+                                        <Plus className="h-3 w-3" /> New customer registration
                                     </div>
                                     <div className="relative">
                                         <Users className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                                         <input
                                             type="text"
-                                            placeholder="Customer Name"
+                                            placeholder="Enter Customer Name"
+                                            value={customerName}
                                             className="h-9 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
                                             onChange={(e) => setCustomerName(e.target.value)}
                                         />
