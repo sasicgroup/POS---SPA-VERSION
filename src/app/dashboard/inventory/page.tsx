@@ -184,6 +184,13 @@ export default function InventoryPage() {
             setCameraError('');
             // Small delay to ensure DOM is ready
             setTimeout(() => {
+                // Remove existing instance if any (safety check)
+                if (scannerRef.current) {
+                    try {
+                        scannerRef.current.clear();
+                    } catch (e) { console.error("Clear error", e); }
+                }
+
                 const html5QrCode = new Html5Qrcode("scanner-reader");
                 scannerRef.current = html5QrCode;
 
@@ -192,7 +199,17 @@ export default function InventoryPage() {
                 html5QrCode.start(
                     { facingMode: "environment" },
                     config,
-                    (decodedText, decodedResult) => {
+                    async (decodedText, decodedResult) => {
+                        // Stop scanning first to prevent errors when unmounting
+                        if (scannerRef.current && scannerRef.current.isScanning) {
+                            try {
+                                await scannerRef.current.stop();
+                                scannerRef.current.clear();
+                            } catch (e) {
+                                console.error("Stop error", e);
+                            }
+                        }
+
                         handleScan(decodedText);
                     },
                     (errorMessage) => {
@@ -204,21 +221,29 @@ export default function InventoryPage() {
                 });
             }, 100);
         } else {
+            // Cleanup if closed via button (state change triggered not by scan success)
             if (scannerRef.current) {
-                scannerRef.current.stop().then(() => {
-                    scannerRef.current?.clear();
-                    scannerRef.current = null;
-                }).catch(err => console.error("Stop failed", err));
+                // We don't wait for promise here as we might be unmounting, but we try
+                try {
+                    if (scannerRef.current.isScanning) {
+                        scannerRef.current.stop().then(() => {
+                            scannerRef.current?.clear();
+                            scannerRef.current = null;
+                        }).catch(err => console.error("Stop failed", err));
+                    }
+                } catch (e) { console.error(e); }
             }
         }
 
         return () => {
+            // Cleanup on unmount
             if (scannerRef.current) {
-                if (scannerRef.current.isScanning) {
-                    scannerRef.current.stop().then(() => {
-                        scannerRef.current?.clear();
-                    }).catch(console.error);
-                }
+                try {
+                    if (scannerRef.current.isScanning) {
+                        scannerRef.current.stop().catch(console.error);
+                    }
+                    scannerRef.current.clear();
+                } catch (e) { console.error("Cleanup error", e); }
             }
         };
     }, [isScanning]);

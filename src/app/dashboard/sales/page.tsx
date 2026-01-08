@@ -167,10 +167,12 @@ export default function SalesPage() {
 
         // Safely find product
         const product = products.find(p => {
-            const sku = p.sku ? p.sku.toLowerCase() : '';
+            const sku = p.sku ? p.sku.toLowerCase().trim() : '';
             const name = p.name ? p.name.toLowerCase() : '';
-            const q = query.toLowerCase();
-            return sku === q || name.includes(q);
+            const q = query.toLowerCase().trim();
+
+            // Prioritize SKU exact match, then loose match on name
+            return sku === q || (name && name.includes(q)) || (sku && sku.includes(q));
         });
 
         if (product) {
