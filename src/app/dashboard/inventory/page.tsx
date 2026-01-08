@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth-context';
 import { useInventory } from '@/lib/inventory-context';
 import { useToast } from '@/lib/toast-context';
-import { Search, Filter, Plus, MoreHorizontal, Sparkles, Scan, Trash2, Printer, Barcode, CheckSquare, Square, X, Edit, Video, Camera } from 'lucide-react';
+import { Search, Filter, Plus, MoreHorizontal, Sparkles, Scan, Trash2, Printer, Barcode, CheckSquare, Square, X, Edit, Video, Camera, ShoppingCart } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -137,6 +137,66 @@ export default function InventoryPage() {
         `;
         printWindow.document.write(html);
         printWindow.document.close();
+    };
+
+    const handleBulkAddToCart = () => {
+        const selectedItems = products.filter(p => selectedProducts.includes(p.id));
+        if (selectedItems.length === 0) return;
+
+        // Get existing cart
+        let currentCart = [];
+        try {
+            const saved = localStorage.getItem('sms_cart');
+            if (saved) currentCart = JSON.parse(saved);
+        } catch (e) { console.error(e); }
+
+        let addedCount = 0;
+
+        selectedItems.forEach(product => {
+            const existingItemIndex = currentCart.findIndex((item: any) => item.id === product.id);
+            if (existingItemIndex >= 0) {
+                // Increment
+                currentCart[existingItemIndex].quantity += 1;
+            } else {
+                // Add new
+                currentCart.push({
+                    ...product,
+                    quantity: 1
+                });
+            }
+            addedCount++;
+        });
+
+        // Save back
+        localStorage.setItem('sms_cart', JSON.stringify(currentCart));
+
+        showToast('success', `${addedCount} items added to cart`);
+        setSelectedProducts([]);
+    };
+
+    const handleAddToCart = (product: any) => {
+        // Get existing cart
+        let currentCart = [];
+        try {
+            const saved = localStorage.getItem('sms_cart');
+            if (saved) currentCart = JSON.parse(saved);
+        } catch (e) { console.error(e); }
+
+        const existingItemIndex = currentCart.findIndex((item: any) => item.id === product.id);
+        if (existingItemIndex >= 0) {
+            // Increment
+            currentCart[existingItemIndex].quantity += 1;
+        } else {
+            // Add new
+            currentCart.push({
+                ...product,
+                quantity: 1
+            });
+        }
+
+        // Save back
+        localStorage.setItem('sms_cart', JSON.stringify(currentCart));
+        showToast('success', `Added ${product.name} to cart`);
     };
 
     const handlePrintBarcode = (product: any) => {
@@ -686,6 +746,16 @@ export default function InventoryPage() {
                                             </button>
                                             <button
                                                 onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleAddToCart(product);
+                                                }}
+                                                className="text-emerald-600 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-emerald-300 p-2 hover:bg-emerald-50 rounded-lg dark:hover:bg-emerald-900/30"
+                                                title="Add to Cart"
+                                            >
+                                                <ShoppingCart className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
                                                     e.preventDefault();
                                                     e.stopPropagation();
                                                     setNewProduct({
@@ -746,6 +816,13 @@ export default function InventoryPage() {
                         >
                             <Barcode className="h-4 w-4" />
                             <span className="text-sm font-medium">Barcodes</span>
+                        </button>
+                        <button
+                            onClick={handleBulkAddToCart}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white transition-all"
+                        >
+                            <ShoppingCart className="h-4 w-4" />
+                            <span className="text-sm font-medium">Add to Cart</span>
                         </button>
                         <button
                             onClick={handleBulkDelete}
