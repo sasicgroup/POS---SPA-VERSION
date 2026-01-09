@@ -11,7 +11,7 @@ export function ReactQueryProvider({ children }: { children: React.ReactNode }) 
                 defaultOptions: {
                     queries: {
                         staleTime: 5 * 60 * 1000, // 5 minutes - data is fresh for 5 mins
-                        cacheTime: 10 * 60 * 1000, // 10 minutes - keep unused data in cache
+                        gcTime: 10 * 60 * 1000, // 10 minutes - keep unused data in cache (formerly cacheTime)
                         refetchOnWindowFocus: false, // Don't refetch on window focus
                         refetchOnReconnect: true, // Refetch when internet reconnects
                         retry: 1, // Retry failed requests once
@@ -25,7 +25,7 @@ export function ReactQueryProvider({ children }: { children: React.ReactNode }) 
             {children}
             {/* DevTools only in development */}
             {process.env.NODE_ENV === 'development' && (
-                <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
+                <ReactQueryDevtools initialIsOpen={false} position="bottom" />
             )}
         </QueryClientProvider>
     );
