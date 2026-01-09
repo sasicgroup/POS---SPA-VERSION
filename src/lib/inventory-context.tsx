@@ -306,7 +306,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 .from('loyalty_programs')
                 .select('*')
                 .eq('store_id', activeStore.id)
-                .single();
+                .maybeSingle();
 
             if (config && config.enabled) {
                 loyaltyConfig = config;

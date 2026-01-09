@@ -133,7 +133,7 @@ export default function SalesPage() {
                 .from('loyalty_programs')
                 .select('*')
                 .eq('store_id', activeStore.id)
-                .single();
+                .maybeSingle();
 
             if (data) setLoyaltyConfig(data);
         };

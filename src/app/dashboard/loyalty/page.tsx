@@ -49,7 +49,7 @@ export default function LoyaltyPage() {
                 .select('*')
                 .eq('store_id', activeStore.id)
                 .eq('phone', phone)
-                .single();
+                .maybeSingle();
 
             if (data) {
                 setCustomer(data);
@@ -145,7 +145,7 @@ export default function LoyaltyPage() {
                 .from('loyalty_programs')
                 .select('*')
                 .eq('store_id', activeStore.id)
-                .single();
+                .maybeSingle();
 
             if (settingsData) {
                 setSettings({

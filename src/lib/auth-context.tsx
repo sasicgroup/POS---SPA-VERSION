@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (accessData) accessIds = accessData.map(a => a.store_id);
 
                 // 2. Also check if they are "home" based in a store
-                const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', currentUser.id).single();
+                const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', currentUser.id).maybeSingle();
                 if (freshEmp?.store_id) accessIds.push(freshEmp.store_id);
 
                 // Fetch Stores
