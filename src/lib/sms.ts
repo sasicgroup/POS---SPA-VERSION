@@ -56,11 +56,12 @@ let smsConfig: SMSConfig = {
 };
 
 export const loadSMSConfigFromDB = async (storeId: string) => {
-    const { data, error } = await supabase
+    const { data: rawData, error } = await supabase
         .from('app_settings')
         .select('sms_config')
-        .eq('store_id', storeId)
-        .maybeSingle();
+        .eq('store_id', storeId);
+
+    const data: any = rawData?.[0];
 
     if (data && data.sms_config) {
         smsConfig = { ...smsConfig, ...data.sms_config };
@@ -133,8 +134,8 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
         return false;
     }
 
-    // Switch to the 'send' endpoint which some accounts require for 'Normal' vs 'Quick' delivery
-    const url = `https://api.mnotify.com/api/sms/send?key=${config.mnotify.apiKey}`;
+    // Revert to the primary Quick SMS endpoint
+    const url = `https://api.mnotify.com/api/sms/quick?key=${config.mnotify.apiKey}`;
 
     // Sanitize and format phone number for Ghana (233)
     let formattedPhone = phone.replace(/\D/g, ''); // Remove non-digits
@@ -150,7 +151,8 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
         message: message,
         is_schedule: false,
         schedule_date: "",
-        sms_type: message.toLowerCase().includes('code') ? 'otp' : 'transactional'
+        // Adding sms_type 'otp' tells mNotify to use a more reliable route
+        sms_type: "otp"
     };
 
     try {
@@ -164,7 +166,7 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
         });
 
         const data = await response.json();
-        console.log('[mNotify Standard Response]', data);
+        console.log('[mNotify Response]', data);
 
         // mNotify success code is 2000
         return data.code === '2000' || data.status === 'success' || data.code === 2000;

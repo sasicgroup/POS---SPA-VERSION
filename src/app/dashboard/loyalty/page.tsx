@@ -44,12 +44,13 @@ export default function LoyaltyPage() {
         setErrorMsg('');
 
         try {
-            const { data, error } = await supabase
+            const { data: customerData, error } = await supabase
                 .from('customers')
                 .select('*')
                 .eq('store_id', activeStore.id)
-                .eq('phone', phone)
-                .maybeSingle();
+                .eq('phone', phone);
+
+            const data = customerData?.[0];
 
             if (data) {
                 setCustomer(data);
@@ -141,11 +142,12 @@ export default function LoyaltyPage() {
             if (!activeStore?.id) return;
 
             // 1. Fetch Settings
-            const { data: settingsData, error: settingsError } = await supabase
+            const { data: rawSettings, error: settingsError } = await supabase
                 .from('loyalty_programs')
                 .select('*')
-                .eq('store_id', activeStore.id)
-                .maybeSingle();
+                .eq('store_id', activeStore.id);
+
+            const settingsData = rawSettings?.[0];
 
             if (settingsData) {
                 setSettings({

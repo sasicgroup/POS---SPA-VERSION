@@ -123,7 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (accessData) accessIds = accessData.map(a => a.store_id);
 
                 // 2. Also check if they are "home" based in a store
-                const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', currentUser.id).maybeSingle();
+                const { data: empRows } = await supabase.from('employees').select('store_id').eq('id', currentUser.id);
+                const freshEmp = empRows?.[0];
                 if (freshEmp?.store_id) accessIds.push(freshEmp.store_id);
 
                 // Fetch Stores
@@ -309,8 +310,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }).eq('id', employee.id);
 
                 // Send OTP
-                const { data: empStore } = await supabase.from('employee_access').select('store_id').eq('employee_id', employee.id).limit(1).maybeSingle();
-                const storeId = empStore?.store_id || employee.store_id;
+                const { data: empAccessRows } = await supabase.from('employee_access').select('store_id').eq('employee_id', employee.id).limit(1);
+                const storeId = empAccessRows?.[0]?.store_id || employee.store_id;
 
                 let smsResult: { success: boolean; error?: string } = { success: false, error: 'SMS not sent' };
                 if (storeId) {
@@ -543,12 +544,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Update Role for this store
         if (updates.role) {
-            const { data: existingAccess } = await supabase
+            const { data: accessCheckRows } = await supabase
                 .from('employee_access')
                 .select('*')
                 .eq('employee_id', id)
-                .eq('store_id', activeStore.id)
-                .maybeSingle();
+                .eq('store_id', activeStore.id);
+
+            const existingAccess = accessCheckRows?.[0];
 
             if (existingAccess) {
                 await supabase.from('employee_access')

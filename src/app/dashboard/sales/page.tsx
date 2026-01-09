@@ -129,13 +129,12 @@ export default function SalesPage() {
         // Fetch Loyalty Config
         const loadLoyalty = async () => {
             if (!activeStore?.id) return;
-            const { data } = await supabase
+            const { data: loyaltyRows } = await supabase
                 .from('loyalty_programs')
                 .select('*')
-                .eq('store_id', activeStore.id)
-                .maybeSingle();
+                .eq('store_id', activeStore.id);
 
-            if (data) setLoyaltyConfig(data);
+            if (loyaltyRows && loyaltyRows.length > 0) setLoyaltyConfig(loyaltyRows[0]);
         };
         loadLoyalty();
     }, [activeStore]);

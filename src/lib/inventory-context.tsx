@@ -302,12 +302,12 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         let pointsEarned = 0;
         let loyaltyConfig = null;
         if (customerId) {
-            const { data: config } = await supabase
+            const { data: configRows } = await supabase
                 .from('loyalty_programs')
                 .select('*')
-                .eq('store_id', activeStore.id)
-                .maybeSingle();
+                .eq('store_id', activeStore.id);
 
+            const config = configRows?.[0];
             if (config && config.enabled) {
                 loyaltyConfig = config;
                 const rate = config.points_per_currency || 1;
