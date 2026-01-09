@@ -121,11 +121,7 @@ Then visit `http://localhost:8000` (or the port shown)
 Your new Supabase project needs these tables. Run the migrations:
 
 1. Go to your Supabase project → SQL Editor
-2. Run `supabase_schema.sql`
-3. Run any additional migration files:
-   - `migrations.sql`
-   - `migrations_sms.sql`
-   - `migrations_final_sms.sql`
+2. Run `database_setup.sql` (This merged file contains all necessary table definitions, migrations, and fixes in the correct order)
 
 ## Custom Domain (Optional)
 

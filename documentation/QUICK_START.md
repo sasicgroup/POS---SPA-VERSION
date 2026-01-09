@@ -24,11 +24,8 @@ const supabaseKey = 'your-new-anon-key';
 
 1. Go to your Supabase project
 2. Navigate to SQL Editor
-3. Run these files in order:
-   - `supabase_schema.sql`
-   - `migrations.sql`
-   - `migrations_sms.sql`
-   - `migrations_final_sms.sql`
+3. Run this file:
+   - `database_setup.sql`
 
 ## Step 3: Rebuild
 
