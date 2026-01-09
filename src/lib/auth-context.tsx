@@ -626,13 +626,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const createStore = async (name: string, location: string) => {
-        // ... existing implementation
         const tempId = 'temp-' + Date.now();
         const newStore: Store = { id: tempId, name, location, currency: 'GHS' };
         setStores(prev => [...prev, newStore]);
         setActiveStore(newStore);
+
         const { data } = await supabase.from('stores').insert([{ name, location }]).select().single();
+
         if (data) {
+            // CRITICAL: Link the creating user to this new store!
+            if (user) {
+                await supabase.from('employee_access').insert({
+                    employee_id: user.id,
+                    store_id: data.id,
+                    role: 'owner'
+                });
+            }
+
             setStores(prev => prev.map(s => s.id === tempId ? data : s));
             setActiveStore(data);
             if (user) logActivity('CREATE_STORE', { store_name: name, store_id: data.id }, user.id, data.id);
