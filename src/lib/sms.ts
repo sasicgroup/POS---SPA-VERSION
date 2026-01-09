@@ -132,8 +132,17 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
     }
 
     const url = `https://api.mnotify.com/api/sms/quick?key=${config.mnotify.apiKey}`;
+
+    // Sanitize and format phone number for Ghana (233)
+    let formattedPhone = phone.replace(/\D/g, ''); // Remove non-digits
+    if (formattedPhone.startsWith('0')) {
+        formattedPhone = '233' + formattedPhone.substring(1);
+    } else if (!formattedPhone.startsWith('233') && formattedPhone.length === 9) {
+        formattedPhone = '233' + formattedPhone;
+    }
+
     const body = {
-        recipient: [phone],
+        recipient: [formattedPhone],
         sender: config.mnotify.senderId,
         message: message,
         is_schedule: false,

@@ -20,11 +20,14 @@ import {
     Tag,
     Package,
     Edit2,
-    Trash2
+    Trash2,
+    Archive,
+    EyeOff,
+    RotateCcw
 } from 'lucide-react';
 
 export default function SettingsPage() {
-    const { activeStore, user, updateStoreSettings, teamMembers, addTeamMember, updateTeamMember, removeTeamMember } = useAuth();
+    const { activeStore, user, updateStoreSettings, teamMembers, addTeamMember, updateTeamMember, removeTeamMember, deleteStore, updateStoreStatus, requestStoreDeleteOTP, stores } = useAuth();
     const { showToast } = useToast();
     const {
         businessTypes,
@@ -56,41 +59,16 @@ export default function SettingsPage() {
     });
     const [isEditingProfile, setIsEditingProfile] = useState(false);
 
-
-
-
-
-    const handleUpdateProfile = async () => {
-        if (!user?.id) return;
-
-        // Don't allow deleting self through accidental empty fields if logic existed, 
-        // but here we just update.
-
-        const { error } = await supabase
-            .from('employees')
-            .update({
-                name: profileData.name,
-                phone: profileData.phone,
-                username: profileData.username
-            })
-            .eq('id', user.id);
-
-        if (error) {
-            showToast('error', 'Failed to update profile');
-        } else {
-            showToast('success', 'Profile updated successfully!');
-            // Update local user object - primitive way, context might need refresh but this helps persists slightly
-            const updatedUser = { ...user, ...profileData };
-            localStorage.setItem('sms_user', JSON.stringify(updatedUser));
-        }
-    };
-
-
-
     // Team Management State
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [editingMember, setEditingMember] = useState<any>(null);
     const [deleteMemberConfirm, setDeleteMemberConfirm] = useState<{ id: string, name: string } | null>(null);
+
+    // Store Management State
+    const [deleteStoreId, setDeleteStoreId] = useState<string | null>(null);
+    const [deleteOTP, setDeleteOTP] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
+    const [otpLoading, setOtpLoading] = useState(false);
 
     // Edit State for Types/Categories
     const [editingType, setEditingType] = useState<string | null>(null);
@@ -112,6 +90,27 @@ export default function SettingsPage() {
             });
         }
     }, [activeStore, user]);
+
+    const handleUpdateProfile = async () => {
+        if (!user?.id) return;
+
+        const { error } = await supabase
+            .from('employees')
+            .update({
+                name: profileData.name,
+                phone: profileData.phone,
+                username: profileData.username
+            })
+            .eq('id', user.id);
+
+        if (error) {
+            showToast('error', 'Failed to update profile');
+        } else {
+            showToast('success', 'Profile updated successfully!');
+            const updatedUser = { ...user, ...profileData };
+            localStorage.setItem('sms_user', JSON.stringify(updatedUser));
+        }
+    };
 
     const handleSave = async () => {
         if (!activeStore?.id || activeStore.id.toString().startsWith('temp-')) {
@@ -162,7 +161,7 @@ export default function SettingsPage() {
         { id: 'profile', label: 'My Profile', icon: Users },
         { id: 'products', label: 'Product Settings', icon: Package },
         { id: 'users', label: 'Team Members', icon: Users },
-
+        { id: 'store-management', label: 'Store Management', icon: Building2 },
         { id: 'sms', label: 'SMS & Notifications', icon: MessageSquare },
     ];
 
@@ -732,6 +731,84 @@ export default function SettingsPage() {
                         </div>
                     )}
 
+                    {activeTab === 'store-management' && (
+                        <div className="space-y-6">
+                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                                <div className="mb-6 border-b border-slate-100 pb-4 dark:border-slate-800">
+                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Store Management</h2>
+                                    <p className="text-sm text-slate-500">Manage visibility and lifecycle of your stores.</p>
+                                </div>
+
+                                <div className="grid gap-6">
+                                    {(stores || []).map((s: any) => (
+                                        <div key={s.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/50 gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                                    <Building2 className="h-6 w-6" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                                        {s.name}
+                                                        {activeStore?.id === s.id && (
+                                                            <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider dark:bg-indigo-900/40 dark:text-indigo-400">Current</span>
+                                                        )}
+                                                        {(s.status || 'active') === 'active' ? (
+                                                            <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider dark:bg-green-900/40 dark:text-green-400">Active</span>
+                                                        ) : (s.status === 'archived') ? (
+                                                            <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider dark:bg-amber-900/40 dark:text-amber-400">Archived</span>
+                                                        ) : (
+                                                            <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider dark:bg-slate-700 dark:text-slate-300">Hidden</span>
+                                                        )}
+                                                    </h3>
+                                                    <p className="text-xs text-slate-500">{s.location || 'No location set'}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2">
+                                                {(s.status || 'active') === 'active' ? (
+                                                    <>
+                                                        <button
+                                                            onClick={() => updateStoreStatus(s.id, 'archived')}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                                        >
+                                                            <Archive className="h-3.5 w-3.5" /> Archive
+                                                        </button>
+                                                        <button
+                                                            onClick={() => updateStoreStatus(s.id, 'hidden')}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                                        >
+                                                            <EyeOff className="h-3.5 w-3.5" /> Hide
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => updateStoreStatus(s.id, 'active')}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                                    >
+                                                        <RotateCcw className="h-3.5 w-3.5" /> Restore
+                                                    </button>
+                                                )}
+
+                                                {user?.role === 'owner' && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setDeleteStoreId(s.id);
+                                                            setOtpSent(false);
+                                                            setDeleteOTP('');
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {activeTab === 'sms' && (
                         <div className="space-y-6">
                             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -965,6 +1042,95 @@ export default function SettingsPage() {
                     </div>
                 )
             }
+
+            {/* Delete Store OTP Modal */}
+            {deleteStoreId && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <div className="mb-6 text-center">
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                                <Trash2 className="h-8 w-8" />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Delete Store</h2>
+                            <p className="mt-2 text-sm text-slate-500">
+                                This action is permanent and cannot be undone. All data associated with this store will be lost.
+                            </p>
+                        </div>
+
+                        {!otpSent ? (
+                            <div className="space-y-4">
+                                <p className="text-center text-sm font-medium text-slate-700 dark:text-slate-300">
+                                    A verification code will be sent to <strong>{user?.phone || 'your phone'}</strong>
+                                </p>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setDeleteStoreId(null)}
+                                        className="flex-1 rounded-xl border border-slate-200 py-3 font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        disabled={otpLoading}
+                                        onClick={async () => {
+                                            setOtpLoading(true);
+                                            const res = await requestStoreDeleteOTP(deleteStoreId);
+                                            setOtpLoading(false);
+                                            if (res.success) {
+                                                setOtpSent(true);
+                                                showToast('success', 'OTP sent to your phone');
+                                            } else {
+                                                showToast('error', res.error || 'Failed to send OTP');
+                                            }
+                                        }}
+                                        className="flex-1 rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                                    >
+                                        {otpLoading ? 'Sending...' : 'Send OTP'}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="mb-1 block text-center text-sm font-medium text-slate-700 dark:text-slate-300">Enter Verification Code</label>
+                                    <input
+                                        type="text"
+                                        maxLength={6}
+                                        value={deleteOTP}
+                                        onChange={(e) => setDeleteOTP(e.target.value.replace(/\D/g, ''))}
+                                        placeholder="000000"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-4 text-center text-2xl font-bold tracking-[0.5em] focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-800 dark:bg-slate-800 dark:text-white"
+                                    />
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setOtpSent(false)}
+                                        className="flex-1 rounded-xl border border-slate-200 py-3 font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/50"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        disabled={deleteOTP.length !== 6 || otpLoading}
+                                        onClick={async () => {
+                                            setOtpLoading(true);
+                                            const res = await deleteStore(deleteStoreId, deleteOTP);
+                                            setOtpLoading(false);
+                                            if (res.success) {
+                                                setDeleteStoreId(null);
+                                                showToast('success', 'Store deleted successfully');
+                                            } else {
+                                                showToast('error', res.error || 'Invalid OTP code');
+                                            }
+                                        }}
+                                        className="flex-1 rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                                    >
+                                        {otpLoading ? 'Deleting...' : 'Confirm Delete'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

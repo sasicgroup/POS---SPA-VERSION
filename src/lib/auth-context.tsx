@@ -75,6 +75,9 @@ interface AuthContextType {
     switchStore: (storeId: any) => void;
     updateStoreSettings: (settings: Partial<Store>) => Promise<{ success: boolean; error?: any }>;
     createStore: (name: string, location: string) => Promise<void>;
+    deleteStore: (storeId: string, otpCode: string) => Promise<{ success: boolean; error?: string }>;
+    updateStoreStatus: (storeId: string, status: 'active' | 'archived' | 'hidden') => Promise<{ success: boolean; error?: string }>;
+    requestStoreDeleteOTP: (storeId: string) => Promise<{ success: boolean; error?: string }>;
     addTeamMember: (member: Omit<User, 'id'>) => Promise<void>;
     updateTeamMember: (id: any, updates: Partial<User>) => Promise<void>;
     removeTeamMember: (id: any) => Promise<void>;
@@ -690,6 +693,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
     };
 
+    // Store Management Functions
+    const requestStoreDeleteOTP = async (storeId: string): Promise<{ success: boolean; error?: string }> => {
+        if (!user?.phone) {
+            return { success: false, error: 'No phone number on file' };
+        }
+
+        try {
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiry = new Date(Date.now() + 5 * 60000); // 5 minutes
+
+            // Save OTP to user's record
+            await supabase.from('employees').update({
+                otp_code: code,
+                otp_expiry: expiry.toISOString()
+            }).eq('id', user.id);
+
+            // Send OTP
+            await loadSMSConfigFromDB(storeId);
+            const smsResult = await sendDirectMessage(user.phone, `Your store deletion OTP is ${code}. Valid for 5 minutes.`);
+
+            if (!smsResult.success) {
+                return { success: false, error: smsResult.error || 'Failed to send OTP' };
+            }
+
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message || 'Failed to send OTP' };
+        }
+    };
+
+    const deleteStore = async (storeId: string, otpCode: string): Promise<{ success: boolean; error?: string }> => {
+        if (!user) {
+            return { success: false, error: 'Not authenticated' };
+        }
+
+        try {
+            // Verify OTP
+            const { data: employee } = await supabase
+                .from('employees')
+                .select('otp_code, otp_expiry')
+                .eq('id', user.id)
+                .single();
+
+            if (!employee || employee.otp_code !== otpCode) {
+                return { success: false, error: 'Invalid OTP code' };
+            }
+
+            const now = new Date();
+            const expiry = new Date(employee.otp_expiry);
+            if (now > expiry) {
+                return { success: false, error: 'OTP code expired' };
+            }
+
+            // Clear OTP
+            await supabase.from('employees').update({
+                otp_code: null,
+                otp_expiry: null
+            }).eq('id', user.id);
+
+            // Delete store
+            const { error } = await supabase
+                .from('stores')
+                .delete()
+                .eq('id', storeId);
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            // Update local state
+            setStores(prev => prev.filter(s => s.id !== storeId));
+            if (activeStore?.id === storeId) {
+                const remainingStores = stores.filter(s => s.id !== storeId);
+                setActiveStore(remainingStores[0] || null);
+            }
+
+            await logActivity('DELETE_STORE', { store_id: storeId }, user.id, storeId);
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message || 'Failed to delete store' };
+        }
+    };
+
+    const updateStoreStatus = async (storeId: string, status: 'active' | 'archived' | 'hidden'): Promise<{ success: boolean; error?: string }> => {
+        try {
+            const { error } = await supabase
+                .from('stores')
+                .update({ status })
+                .eq('id', storeId);
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            // Update local state
+            setStores(prev => prev.map(s => s.id === storeId ? { ...s, status } : s));
+            if (activeStore?.id === storeId) {
+                setActiveStore(prev => prev ? { ...prev, status } : null);
+            }
+
+            await logActivity('UPDATE_STORE_STATUS', { store_id: storeId, status }, user?.id, storeId);
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message || 'Failed to update store status' };
+        }
+    };
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -702,6 +812,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             switchStore,
             updateStoreSettings,
             createStore,
+            deleteStore,
+            updateStoreStatus,
+            requestStoreDeleteOTP,
             addTeamMember,
             updateTeamMember,
             removeTeamMember,
