@@ -403,7 +403,7 @@ export default function SettingsPage() {
                                     onClick={() => setShowInviteModal(true)}
                                     className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 font-medium transition-colors"
                                 >
-                                    + Invite Member
+                                    + Add Member
                                 </button>
                             </div>
 
@@ -455,7 +455,7 @@ export default function SettingsPage() {
                                 ))}
                                 {teamMembers.length === 0 && (
                                     <div className="text-center py-8 text-slate-500">
-                                        No team members found. Invite someone to get started!
+                                        No team members found. Add someone to get started!
                                     </div>
                                 )}
                             </div>
@@ -470,7 +470,7 @@ export default function SettingsPage() {
                             <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                                 <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                                     <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                                        {editingMember ? 'Edit Member' : 'Invite New Member'}
+                                        {editingMember ? 'Edit Member' : 'Add New Member'}
                                     </h3>
                                     <button onClick={() => { setShowInviteModal(false); setEditingMember(null); }} className="text-slate-400 hover:text-slate-600">
                                         <X className="h-5 w-5" />
@@ -542,7 +542,7 @@ export default function SettingsPage() {
                                     <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 rounded-b-2xl">
                                         <button type="button" onClick={() => { setShowInviteModal(false); setEditingMember(null); }} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">Cancel</button>
                                         <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-lg shadow-indigo-500/30 transition-all transform active:scale-95">
-                                            {editingMember ? 'Save Changes' : 'Send Invitation'}
+                                            {editingMember ? 'Save Changes' : 'Add Member'}
                                         </button>
                                     </div>
                                 </form>
