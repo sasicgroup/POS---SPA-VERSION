@@ -369,6 +369,7 @@ export const sendDirectMessage = async (phone: string, message: string, channels
     console.log('[SMS] sendDirectMessage called with:', { phone, message: message.substring(0, 50) + '...', channels, storeId });
 
     try {
+        console.log('[SMS] Making fetch request to /api/sms/send');
         const response = await fetch('/api/sms/send', {
             method: 'POST',
             headers: {
@@ -381,6 +382,16 @@ export const sendDirectMessage = async (phone: string, message: string, channels
                 storeId
             })
         });
+
+        console.log('[SMS] Fetch response status:', response.status, response.ok);
+
+        if (!response.ok) {
+            console.error('[SMS] HTTP error:', response.status, response.statusText);
+            return {
+                success: false,
+                error: `HTTP ${response.status}: ${response.statusText}`
+            };
+        }
 
         const data = await response.json();
         console.log('[SMS] API response:', data);

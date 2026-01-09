@@ -185,19 +185,27 @@ export async function POST(request: NextRequest) {
         // If no storeId provided, try to use a default or skip config loading
         let config: SMSConfig | null = null;
         if (storeId) {
-            // Load SMS config from DB
-            const { data: rawData, error } = await supabase
-                .from('app_settings')
-                .select('sms_config')
-                .eq('store_id', storeId);
+            // Load SMS config from DB with timeout
+            try {
+                const { data: rawData, error } = await Promise.race([
+                    supabase
+                        .from('app_settings')
+                        .select('sms_config')
+                        .eq('store_id', storeId),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Database timeout')), 5000))
+                ]) as any;
 
-            if (error || !rawData?.[0]?.sms_config) {
-                console.error('[SMS API] Config load error:', error, 'Data:', rawData);
-                return NextResponse.json({ success: false, error: 'SMS config not found for store' }, { status: 400 });
+                if (error || !rawData?.[0]?.sms_config) {
+                    console.error('[SMS API] Config load error:', error, 'Data:', rawData);
+                    return NextResponse.json({ success: false, error: 'SMS config not found for store' }, { status: 400 });
+                }
+
+                config = rawData[0].sms_config;
+                console.log('[SMS API] Loaded config:', { provider: config.provider, hasHubtel: !!config.hubtel?.clientId, hasMnotify: !!config.mnotify?.apiKey });
+            } catch (dbError: any) {
+                console.error('[SMS API] Database error:', dbError);
+                return NextResponse.json({ success: false, error: 'Database connection failed' }, { status: 500 });
             }
-
-            config = rawData[0].sms_config;
-            console.log('[SMS API] Loaded config:', { provider: config.provider, hasHubtel: !!config.hubtel?.clientId, hasMnotify: !!config.mnotify?.apiKey });
         } else {
             // Try to load from a default store or use basic config
             console.warn('[SMS API] No storeId provided, attempting to load default config');
@@ -234,15 +242,23 @@ export async function POST(request: NextRequest) {
             whatsappSuccess = await sendMetaWhatsApp(config, cleanPhone, message);
         }
 
-        // Log to DB
-        await supabase.from('sms_logs').insert({
-            phone: cleanPhone,
-            message,
-            channel: channels.includes('sms') ? 'sms' : 'whatsapp',
-            status: (smsSuccess || whatsappSuccess) ? 'sent' : 'failed',
-            store_id: storeId,
-            created_at: new Date().toISOString()
-        });
+        // Log to DB with timeout
+        try {
+            await Promise.race([
+                supabase.from('sms_logs').insert({
+                    phone: cleanPhone,
+                    message,
+                    channel: channels.includes('sms') ? 'sms' : 'whatsapp',
+                    status: (smsSuccess || whatsappSuccess) ? 'sent' : 'failed',
+                    store_id: storeId,
+                    created_at: new Date().toISOString()
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Log timeout')), 3000))
+            ]);
+        } catch (logError: any) {
+            console.error('[SMS API] Logging error:', logError);
+            // Don't fail the request if logging fails
+        }
 
         const success = smsSuccess || whatsappSuccess;
         return NextResponse.json({
