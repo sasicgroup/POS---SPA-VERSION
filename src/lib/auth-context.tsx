@@ -110,29 +110,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 let validStores: any[] = [];
                 let accessIds: any[] = [];
 
-                if (currentUser.id !== 'owner-1') {
-                    // 1. Get Access IDs from Junction Table
-                    const { data: accessData } = await supabase
-                        .from('employee_access')
-                        .select('store_id')
-                        .eq('employee_id', currentUser.id);
+                // 1. Get Access IDs from Junction Table
+                const { data: accessData } = await supabase
+                    .from('employee_access')
+                    .select('store_id')
+                    .eq('employee_id', currentUser.id);
 
-                    if (accessData) accessIds = accessData.map(a => a.store_id);
+                if (accessData) accessIds = accessData.map(a => a.store_id);
 
-                    // 2. Also check if they are "home" based in a store
-                    const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', currentUser.id).single();
-                    if (freshEmp?.store_id) accessIds.push(freshEmp.store_id);
-                }
+                // 2. Also check if they are "home" based in a store
+                const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', currentUser.id).single();
+                if (freshEmp?.store_id) accessIds.push(freshEmp.store_id);
 
                 // Fetch Stores
                 if (accessIds.length > 0) {
                     const { data: userStores } = await supabase.from('stores').select('*').in('id', accessIds);
                     if (userStores) validStores = userStores;
-                } else {
-                    if (currentUser.id === 'owner-1') {
-                        const { data: all } = await supabase.from('stores').select('*');
-                        if (all) validStores = all;
-                    }
                 }
 
                 if (validStores.length > 0) {
@@ -183,20 +176,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let validStores: any[] = [];
         let accessIds: any[] = [];
 
-        if (loggedUser.id !== 'owner-1') {
-            const { data: accessData } = await supabase.from('employee_access').select('store_id').eq('employee_id', loggedUser.id);
-            if (accessData) accessIds = accessData.map(a => a.store_id);
+        const { data: accessData } = await supabase.from('employee_access').select('store_id').eq('employee_id', loggedUser.id);
+        if (accessData) accessIds = accessData.map(a => a.store_id);
 
-            const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', loggedUser.id).single();
-            if (freshEmp?.store_id) accessIds.push(freshEmp.store_id);
-        }
+        const { data: freshEmp } = await supabase.from('employees').select('store_id').eq('id', loggedUser.id).single();
+        if (freshEmp?.store_id) accessIds.push(freshEmp.store_id);
 
         if (accessIds.length > 0) {
             const { data: userStores } = await supabase.from('stores').select('*').in('id', accessIds);
             if (userStores) validStores = userStores;
-        } else if (loggedUser.id === 'owner-1') {
-            const { data: all } = await supabase.from('stores').select('*');
-            if (all) validStores = all;
         }
 
         if (validStores.length > 0) {
@@ -217,8 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setUser(loggedUser);
         localStorage.setItem('sms_user', JSON.stringify(loggedUser));
-        setUser(loggedUser);
-        localStorage.setItem('sms_user', JSON.stringify(loggedUser));
+
 
         // Log Login (Only if not just init) - Actually this is initAuth, maybe skip logging here or log 'SESSION_RESTORED'
         // logActivity('SESSION_RESTORED', {}, loggedUser.id, mappedStores?.[0]?.id);

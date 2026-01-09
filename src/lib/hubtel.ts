@@ -27,11 +27,7 @@ export interface HubtelPaymentResponse {
  * Initialize Hubtel payment
  * This creates a payment request and returns a checkout URL or USSD code
  */
-/**
- * Initialize Hubtel payment
- * This creates a payment request and returns a checkout URL or USSD code
- */
-// import { initiateHubtelPaymentAction } from '@/app/actions/payment-actions'; // Removed for SPA
+
 
 /**
  * Initialize Hubtel payment
@@ -133,54 +129,4 @@ export async function verifyHubtelPayment(
     }
 }
 
-/**
- * Get Hubtel configuration from store settings
- * @deprecated Use getPaymentSettings from payment-settings.ts instead
- */
-export async function getHubtelConfig(storeId: string): Promise<HubtelConfig | null> {
-    try {
-        const { data, error } = await supabase
-            .from('stores')
-            .select('payment_settings')
-            .eq('id', storeId)
-            .single();
 
-        if (error || !data) {
-            console.error('[Hubtel] Failed to fetch config:', error);
-            return null;
-        }
-
-        // Return modern config structure
-        const settings = data.payment_settings?.hubtel;
-        if (settings && (settings.api_id || settings.api_key)) {
-            return settings;
-        }
-
-        // Migration fallback if old keys exist but new ones don't
-        if (settings && settings.client_id) {
-            return {
-                enabled: settings.enabled,
-                api_id: settings.client_id,
-                api_key: settings.client_secret
-            };
-        }
-
-        return {
-            enabled: false,
-            api_id: '',
-            api_key: ''
-        };
-    } catch (error) {
-        console.error('[Hubtel] Error fetching config:', error);
-        return null;
-    }
-}
-
-/**
- * Save Hubtel configuration
- * @deprecated Use savePaymentSettings from payment-settings.ts instead
- */
-export async function saveHubtelConfig(storeId: string, config: HubtelConfig): Promise<boolean> {
-    // This function is likely unused now but kept for compatibility
-    return false;
-}
