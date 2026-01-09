@@ -92,25 +92,29 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     };
 
     const isFetching = useRef(false);
+    const lastFetchedStoreId = useRef<string | null>(null);
 
     useEffect(() => {
-        if (activeStore?.id) {
+        if (activeStore?.id && activeStore.id !== lastFetchedStoreId.current) {
+            lastFetchedStoreId.current = activeStore.id;
             fetchProducts();
-        } else {
+        } else if (!activeStore?.id) {
             setProducts([]);
             setIsLoading(false);
+            lastFetchedStoreId.current = null;
         }
     }, [activeStore?.id]);
 
     const fetchProducts = async (retry = true) => {
         if (!activeStore?.id || activeStore.id.toString().startsWith('temp-')) {
             setIsLoading(false);
+            isFetching.current = false;
             return;
         }
 
-        // Prevent duplicate fetches
-        if (isFetching.current) {
-            console.log('[Inventory] Fetch already in progress, skipping duplicate call.');
+        // Prevent duplicate fetches for the same store
+        if (isFetching.current && lastFetchedStoreId.current === activeStore.id) {
+            console.log('[Inventory] Fetch already in progress for this store, skipping duplicate call.');
             return;
         }
 
@@ -145,6 +149,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 // });
 
                 setIsLoading(false);
+                isFetching.current = false;
             }
         } catch (err: any) {
             console.error('[Inventory] Error fetching products:', err.message || err);
@@ -159,11 +164,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 // Only clear if final attempt failed
                 if (products.length === 0) setProducts([]);
                 setIsLoading(false);
-            }
-        } finally {
-            if (!retry) {
                 isFetching.current = false;
             }
+        }
             // Note: If retrying, we released lock above before setTimeout, 
             // but if we are successfully done (no error), we must release here.
             // If error caught and retry=true, we returned early, so this finally block runs?

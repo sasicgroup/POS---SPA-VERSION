@@ -76,8 +76,31 @@ export const loadSMSConfigFromDB = async (storeId: string) => {
         }
         return smsConfig;
     }
-    console.warn(`[SMS Config] No config found in DB for store: ${storeId}`);
-    return null;
+
+    // If no config found, use default config but mark it as not configured
+    console.log(`[SMS Config] No config found in DB for store: ${storeId}, using defaults`);
+    smsConfig = {
+        provider: 'hubtel',
+        whatsappProvider: 'none',
+        hubtel: { clientId: '', clientSecret: '', senderId: '' },
+        mnotify: { apiKey: '', senderId: '' },
+        meta: { accessToken: '', phoneNumberId: '', businessAccountId: '' },
+        notifications: {
+            owner: { sms: false, whatsapp: false },
+            customer: { sms: false, whatsapp: false }
+        },
+        templates: {
+            welcome: "Welcome {Name}! You have been registered. Shop with us to earn points.",
+            receipt: "Thanks for buying! Total: GHS {Amount}. See you soon!",
+            ownerSale: "New Sale Alert: GHS {Amount} by {Name}. Total Today: {TotalOrders} orders."
+        }
+    };
+
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('sms_config', JSON.stringify(smsConfig));
+    }
+
+    return smsConfig;
 }
 
 export const getSMSConfig = (): SMSConfig => {
