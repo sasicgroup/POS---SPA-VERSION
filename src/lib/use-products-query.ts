@@ -19,6 +19,7 @@ interface Product {
 
 // Fetch products for a store
 const fetchProducts = async (storeId: string): Promise<Product[]> => {
+    if (!storeId || storeId.toString().startsWith('temp-')) return [];
     console.log('[React Query] Fetching products for store:', storeId);
 
     const { data, error } = await supabase
@@ -57,7 +58,7 @@ export function useProducts() {
     } = useQuery({
         queryKey: ['products', activeStore?.id],
         queryFn: () => fetchProducts(activeStore!.id),
-        enabled: !!activeStore?.id, // Only run if we have a store
+        enabled: !!activeStore?.id && !activeStore.id.toString().startsWith('temp-'), // Only run if we have a store
         staleTime: 5 * 60 * 1000, // Consider fresh for 5 minutes
         gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     });

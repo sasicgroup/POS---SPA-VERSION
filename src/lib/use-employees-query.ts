@@ -6,6 +6,7 @@ import { useAuth } from './auth-context';
 
 // Fetch employees for a store
 const fetchEmployees = async (storeId: string) => {
+    if (!storeId || storeId.toString().startsWith('temp-')) return [];
     console.log('[React Query] Fetching employees for store:', storeId);
 
     const { data, error } = await supabase
@@ -36,7 +37,7 @@ export function useEmployees() {
     } = useQuery({
         queryKey: ['employees', activeStore?.id],
         queryFn: () => fetchEmployees(activeStore!.id),
-        enabled: !!activeStore?.id,
+        enabled: !!activeStore?.id && !activeStore.id.toString().startsWith('temp-'),
         staleTime: 5 * 60 * 1000, // 5 minutes - employees don't change often
         gcTime: 15 * 60 * 1000,
     });

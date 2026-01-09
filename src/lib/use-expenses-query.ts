@@ -6,6 +6,7 @@ import { useAuth } from './auth-context';
 
 // Fetch expenses for a store
 const fetchExpenses = async (storeId: string) => {
+    if (!storeId || storeId.toString().startsWith('temp-')) return [];
     console.log('[React Query] Fetching expenses for store:', storeId);
 
     const { data, error } = await supabase
@@ -36,7 +37,7 @@ export function useExpenses() {
     } = useQuery({
         queryKey: ['expenses', activeStore?.id],
         queryFn: () => fetchExpenses(activeStore!.id),
-        enabled: !!activeStore?.id,
+        enabled: !!activeStore?.id && !activeStore.id.toString().startsWith('temp-'),
         staleTime: 3 * 60 * 1000, // 3 minutes
         gcTime: 10 * 60 * 1000,
     });

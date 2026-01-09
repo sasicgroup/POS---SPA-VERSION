@@ -6,6 +6,17 @@ import { useAuth } from './auth-context';
 
 // Fetch dashboard stats for a store
 const fetchDashboardStats = async (storeId: string) => {
+    if (!storeId || storeId.toString().startsWith('temp-')) {
+        return {
+            totalRevenue: 0,
+            totalOrders: 0,
+            totalCustomers: 0,
+            todayRevenue: 0,
+            inventoryValue: 0,
+            lowStockCount: 0,
+            recentSales: [],
+        };
+    }
     console.log('[React Query] Fetching dashboard stats for store:', storeId);
 
     // Fetch all data in parallel
@@ -73,7 +84,7 @@ export function useDashboardStats() {
     } = useQuery({
         queryKey: ['dashboard-stats', activeStore?.id],
         queryFn: () => fetchDashboardStats(activeStore!.id),
-        enabled: !!activeStore?.id,
+        enabled: !!activeStore?.id && !activeStore.id.toString().startsWith('temp-'),
         staleTime: 1 * 60 * 1000, // 1 minute - dashboard should be relatively fresh
         gcTime: 5 * 60 * 1000,
         refetchInterval: 2 * 60 * 1000, // Auto-refetch every 2 minutes

@@ -114,6 +114,11 @@ export default function SettingsPage() {
     }, [activeStore, user]);
 
     const handleSave = async () => {
+        if (!activeStore?.id || activeStore.id.toString().startsWith('temp-')) {
+            showToast('error', 'Cannot save settings. Invalid or temporary store ID. Please reload.');
+            return;
+        }
+
         setIsSaving(true);
         try {
             // Save SMS Config
@@ -121,7 +126,6 @@ export default function SettingsPage() {
                 await updateSMSConfig(smsConfig, activeStore.id);
             }
 
-            // Save Store Settings
             // Save Store Settings
             if (activeStore) {
                 const result = await updateStoreSettings({
@@ -143,9 +147,9 @@ export default function SettingsPage() {
             } else {
                 showToast('success', 'Settings saved successfully!');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save settings:", error);
-            showToast('error', 'Failed to save settings. Please try again.');
+            showToast('error', `Failed to save settings: ${error.message || 'Unknown error'}`);
         } finally {
             setIsSaving(false);
         }
