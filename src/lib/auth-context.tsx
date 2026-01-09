@@ -67,7 +67,7 @@ interface AuthContextType {
     stores: Store[];
     isLoading: boolean;
     teamMembers: User[];
-    login: (username: string, pin: string) => Promise<{ success: boolean; status: 'SUCCESS' | 'OTP_REQUIRED' | 'LOCKED' | 'INVALID_CREDENTIALS' | 'OUTSIDE_SHIFT' | 'ERROR'; message?: string; tempUser?: User }>;
+    login: (username: string, pin: string) => Promise<{ success: boolean; status: 'SUCCESS' | 'OTP_REQUIRED' | 'LOCKED' | 'INVALID_CREDENTIALS' | 'OUTSIDE_SHIFT' | 'ERROR'; message?: string; tempUser?: User; smsStatus?: 'sent' | 'failed'; smsError?: string }>;
     verifyOTP: (username: string, code: string) => Promise<boolean>;
     resendOTP: (username: string) => Promise<boolean>;
     unlockAccount: (userId: any) => Promise<boolean>;
@@ -213,7 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: true, status: 'SUCCESS', tempUser: loggedUser };
     };
 
-    const login = async (username: string, pin: string): Promise<{ success: boolean; status: 'SUCCESS' | 'OTP_REQUIRED' | 'LOCKED' | 'INVALID_CREDENTIALS' | 'OUTSIDE_SHIFT' | 'ERROR'; message?: string; tempUser?: User }> => {
+    const login = async (username: string, pin: string): Promise<{ success: boolean; status: 'SUCCESS' | 'OTP_REQUIRED' | 'LOCKED' | 'INVALID_CREDENTIALS' | 'OUTSIDE_SHIFT' | 'ERROR'; message?: string; tempUser?: User; smsStatus?: 'sent' | 'failed'; smsError?: string }> => {
         setIsLoading(true);
         try {
             // 1. Find Employee by Username (Case Insensitive)
@@ -305,15 +305,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }).eq('id', employee.id);
 
                 // Send OTP
-                // Need store context for SMS config? We can fetch it based on user's store
                 const { data: empStore } = await supabase.from('employee_access').select('store_id').eq('employee_id', employee.id).limit(1).maybeSingle();
                 const storeId = empStore?.store_id || employee.store_id;
+
+                let smsResult: { success: boolean; error?: string } = { success: false, error: 'SMS not sent' };
                 if (storeId) {
                     await loadSMSConfigFromDB(storeId);
-                    await sendDirectMessage(employee.phone, `Your OTP is ${code}. Valid for 5 minutes.`);
+                    smsResult = await sendDirectMessage(employee.phone, `Your OTP is ${code}. Valid for 5 minutes.`);
                 }
 
-                return { success: true, status: 'OTP_REQUIRED', tempUser: userObj };
+                return {
+                    success: true,
+                    status: 'OTP_REQUIRED',
+                    tempUser: userObj,
+                    smsStatus: smsResult.success ? 'sent' : 'failed',
+                    smsError: smsResult.error
+                };
             }
 
             // 5. Finalize Login (Direct)

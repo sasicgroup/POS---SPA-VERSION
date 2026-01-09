@@ -297,29 +297,66 @@ export const sendNotification = async (type: 'welcome' | 'sale', data: any) => {
     return true;
 };
 
-export const sendDirectMessage = async (phone: string, message: string, channels: ('sms' | 'whatsapp')[] = ['sms', 'whatsapp'], storeId?: string) => {
+export const sendDirectMessage = async (phone: string, message: string, channels: ('sms' | 'whatsapp')[] = ['sms', 'whatsapp'], storeId?: string): Promise<{ success: boolean; error?: string }> => {
     const config = getSMSConfig();
 
     console.log(`[SMS] Direct Message to ${phone} via ${channels.join(', ')}`);
 
+    let smsSuccess = false;
+    let whatsappSuccess = false;
+    let errorMessage = '';
+
     // Send SMS
     if (channels.includes('sms')) {
-        let success = false;
-        if (config.provider === 'hubtel') {
-            await sendHubtelSMS(config, phone, message);
-            success = true;
-        } else if (config.provider === 'mnotify') {
-            await sendMNotifySMS(config, phone, message);
-            success = true;
+        try {
+            if (config.provider === 'hubtel') {
+                if (!config.hubtel?.clientId || !config.hubtel?.clientSecret) {
+                    errorMessage = 'Hubtel credentials not configured';
+                    console.error('[SMS Error]', errorMessage);
+                } else {
+                    await sendHubtelSMS(config, phone, message);
+                    smsSuccess = true;
+                }
+            } else if (config.provider === 'mnotify') {
+                if (!config.mnotify?.apiKey) {
+                    errorMessage = 'mNotify API key not configured';
+                    console.error('[SMS Error]', errorMessage);
+                } else {
+                    await sendMNotifySMS(config, phone, message);
+                    smsSuccess = true;
+                }
+            } else {
+                errorMessage = 'No SMS provider configured';
+            }
+            await logSMS(phone, message, 'sms', smsSuccess ? 'sent' : 'failed', storeId);
+        } catch (e: any) {
+            errorMessage = e.message || 'SMS sending failed';
+            console.error('[SMS Error]', e);
+            await logSMS(phone, message, 'sms', 'failed', storeId);
         }
-        await logSMS(phone, message, 'sms', success ? 'sent' : 'failed', storeId);
     }
 
     // Send WhatsApp
-    if (channels.includes('whatsapp') && config.meta?.accessToken) {
-        await sendMetaWhatsApp(config, phone, message);
-        await logSMS(phone, message, 'whatsapp', 'sent', storeId);
+    if (channels.includes('whatsapp')) {
+        try {
+            if (config.meta?.accessToken) {
+                await sendMetaWhatsApp(config, phone, message);
+                whatsappSuccess = true;
+                await logSMS(phone, message, 'whatsapp', 'sent', storeId);
+            } else {
+                console.warn('[WhatsApp] Meta credentials not configured');
+            }
+        } catch (e: any) {
+            console.error('[WhatsApp Error]', e);
+            await logSMS(phone, message, 'whatsapp', 'failed', storeId);
+        }
     }
+
+    const success = smsSuccess || whatsappSuccess;
+    return {
+        success,
+        error: success ? undefined : (errorMessage || 'Failed to send message')
+    };
 };
 
 export const getSMSBalance = async (): Promise<number> => {

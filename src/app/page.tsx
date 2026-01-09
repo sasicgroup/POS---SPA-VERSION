@@ -31,6 +31,13 @@ export default function LoginPage() {
             if (result.success) {
                 if (result.status === 'OTP_REQUIRED') {
                     setStep('otp');
+                    // Show SMS status feedback
+                    if (result.smsStatus === 'sent') {
+                        setError(''); // Clear any previous errors
+                        // Success feedback will be shown in OTP screen
+                    } else if (result.smsStatus === 'failed') {
+                        setError(`⚠️ ${result.smsError || 'Failed to send OTP'}. Please contact support or try again.`);
+                    }
                 } else {
                     router.push('/dashboard');
                 }
@@ -100,7 +107,16 @@ export default function LoginPage() {
                     </div>
 
                     <h2 className="mb-2 text-center text-3xl font-bold tracking-tight">{step === 'otp' ? 'Security Check' : 'Store Access'}</h2>
-                    <p className="mb-8 text-center text-indigo-100">{step === 'otp' ? 'Enter the code sent to your phone' : 'Enter your credentials to continue'}</p>
+                    <p className="mb-8 text-center text-indigo-100">
+                        {step === 'otp' ? (
+                            <>
+                                <span className="block">✅ Code sent to your phone</span>
+                                <span className="block text-sm mt-1">Enter the 6-digit code below</span>
+                            </>
+                        ) : (
+                            'Enter your credentials to continue'
+                        )}
+                    </p>
 
                     {step === 'credentials' ? (
                         <form onSubmit={handleCredentialsSubmit} className="space-y-6">
