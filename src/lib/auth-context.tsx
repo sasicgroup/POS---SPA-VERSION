@@ -21,6 +21,7 @@ export interface Store {
     receiptSuffix?: string; // e.g., "-A", "2024"
     lastTransactionNumber?: number; // Sequential counter
     rolePermissions?: Record<string, Record<string, boolean>>; // { manager: { view_dashboard: true }, staff: { ... } }
+    status?: 'active' | 'archived' | 'hidden';
 }
 
 // Default Permissions

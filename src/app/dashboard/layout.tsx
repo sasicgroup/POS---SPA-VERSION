@@ -190,7 +190,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                                         <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                             Switch Business
                                         </div>
-                                        {stores.map((store) => (
+                                        {stores.filter(s => !s.status || s.status === 'active').map((store) => (
                                             <button
                                                 key={store.id}
                                                 onClick={() => {
