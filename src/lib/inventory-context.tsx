@@ -167,14 +167,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 isFetching.current = false;
             }
         }
-            // Note: If retrying, we released lock above before setTimeout, 
-            // but if we are successfully done (no error), we must release here.
-            // If error caught and retry=true, we returned early, so this finally block runs?
-            // Wait, finally runs before return? Yes.
-
-            // Let's simplify logic to avoid confusion.
-        }
-        isFetching.current = false;
     };
 
     const addProduct = async (product: any) => {
