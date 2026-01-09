@@ -929,13 +929,24 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
                                     )}
-
                                     <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-6">
                                         <div className="mb-4">
-                                            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                                <div className="bg-green-100 text-green-600 p-1 rounded"><span className="text-xs font-bold">WA</span></div>
-                                                WhatsApp Integration (Meta Cloud API)
-                                            </h3>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                                    <div className="bg-green-100 text-green-600 p-1 rounded"><span className="text-xs font-bold">WA</span></div>
+                                                    WhatsApp Integration (Meta Cloud API)
+                                                </h3>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={smsConfig.whatsappProvider === 'meta'}
+                                                        onChange={(e) => setSmsConfig({ ...smsConfig, whatsappProvider: e.target.checked ? 'meta' : 'none' })}
+                                                    />
+                                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                                                    <span className="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300">{smsConfig.whatsappProvider === 'meta' ? 'Enabled' : 'Disabled'}</span>
+                                                </label>
+                                            </div>
                                             <p className="text-sm text-slate-500">Configure your Meta (Facebook) developer credentials to send WhatsApp messages.</p>
                                         </div>
 
@@ -971,52 +982,52 @@ export default function SettingsPage() {
                                                 />
                                             </div>
                                         </div>
+                                    </div>
 
-                                        {/* Test SMS Section */}
-                                        <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-6">
-                                            <div className="mb-4">
-                                                <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                                    <MessageSquare className="h-5 w-5 text-indigo-500" />
-                                                    Test SMS Delivery
-                                                </h3>
-                                                <p className="text-sm text-slate-500">Verify your configuration is working before enabling features like OTP.</p>
-                                            </div>
+                                    {/* Test SMS Section */}
+                                    <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-6">
+                                        <div className="mb-4">
+                                            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                                <MessageSquare className="h-5 w-5 text-indigo-500" />
+                                                Test SMS Delivery
+                                            </h3>
+                                            <p className="text-sm text-slate-500">Verify your configuration is working before enabling features like OTP.</p>
+                                        </div>
 
-                                            <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-900/40 space-y-4">
-                                                <div className="grid gap-4 md:grid-cols-2">
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase">Receiver Phone Number</label>
-                                                        <input
-                                                            type="text"
-                                                            value={testSmsPhone}
-                                                            onChange={(e) => setTestSmsPhone(e.target.value)}
-                                                            placeholder="e.g. 0544146190"
-                                                            className="w-full rounded-lg border border-indigo-200 bg-white py-2 px-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-indigo-800 dark:bg-slate-900 dark:text-white"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase">Test Message</label>
-                                                        <input
-                                                            type="text"
-                                                            value={testSmsMessage}
-                                                            onChange={(e) => setTestSmsMessage(e.target.value)}
-                                                            className="w-full rounded-lg border border-indigo-200 bg-white py-2 px-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-indigo-800 dark:bg-slate-900 dark:text-white"
-                                                        />
-                                                    </div>
+                                        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-900/40 space-y-4">
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase">Receiver Phone Number</label>
+                                                    <input
+                                                        type="text"
+                                                        value={testSmsPhone}
+                                                        onChange={(e) => setTestSmsPhone(e.target.value)}
+                                                        placeholder="e.g. 0544146190"
+                                                        className="w-full rounded-lg border border-indigo-200 bg-white py-2 px-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-indigo-800 dark:bg-slate-900 dark:text-white"
+                                                    />
                                                 </div>
-                                                <button
-                                                    onClick={handleSendTestSMS}
-                                                    disabled={isTestingSms}
-                                                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-bold text-white transition-all hover:bg-indigo-700 disabled:opacity-50"
-                                                >
-                                                    {isTestingSms ? (
-                                                        <RotateCcw className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                        <MessageSquare className="h-4 w-4" />
-                                                    )}
-                                                    {isTestingSms ? 'Sending...' : 'Send Test SMS'}
-                                                </button>
+                                                <div className="space-y-1.5">
+                                                    <label className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase">Test Message</label>
+                                                    <input
+                                                        type="text"
+                                                        value={testSmsMessage}
+                                                        onChange={(e) => setTestSmsMessage(e.target.value)}
+                                                        className="w-full rounded-lg border border-indigo-200 bg-white py-2 px-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-indigo-800 dark:bg-slate-900 dark:text-white"
+                                                    />
+                                                </div>
                                             </div>
+                                            <button
+                                                onClick={handleSendTestSMS}
+                                                disabled={isTestingSms}
+                                                className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-bold text-white transition-all hover:bg-indigo-700 disabled:opacity-50"
+                                            >
+                                                {isTestingSms ? (
+                                                    <RotateCcw className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <MessageSquare className="h-4 w-4" />
+                                                )}
+                                                {isTestingSms ? 'Sending...' : 'Send Test SMS'}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -1082,40 +1093,41 @@ export default function SettingsPage() {
                     )}
                 </div>
             </div>
+
             {/* Delete Member Confirmation Modal */}
-            {
-                deleteMemberConfirm && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200 p-4">
-                        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
-                                <Users className="h-6 w-6 text-red-600 dark:text-red-400" />
-                            </div>
-                            <h3 className="text-lg font-bold text-center text-slate-900 dark:text-white mb-2">Remove Team Member?</h3>
-                            <p className="text-sm text-center text-slate-500 mb-6">
-                                Are you sure you want to remove <span className="font-semibold text-slate-900 dark:text-slate-100">{deleteMemberConfirm.name}</span>? They will no longer have access.
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setDeleteMemberConfirm(null)}
-                                    className="flex-1 rounded-xl bg-slate-100 py-3 font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => {
+            {deleteMemberConfirm && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200 p-4">
+                    <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+                            <Users className="h-6 w-6 text-red-600 dark:text-red-400" />
+                        </div>
+                        <h3 className="text-lg font-bold text-center text-slate-900 dark:text-white mb-2">Remove Team Member?</h3>
+                        <p className="text-sm text-center text-slate-500 mb-6">
+                            Are you sure you want to remove <span className="font-semibold text-slate-900 dark:text-slate-100">{deleteMemberConfirm.name}</span>? They will no longer have access.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteMemberConfirm(null)}
+                                className="flex-1 rounded-xl bg-slate-100 py-3 font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (deleteMemberConfirm) {
                                         removeTeamMember(deleteMemberConfirm.id);
                                         setDeleteMemberConfirm(null);
                                         showToast('success', 'Team member removed successfully');
-                                    }}
-                                    className="flex-1 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
-                                >
-                                    Remove
-                                </button>
-                            </div>
+                                    }
+                                }}
+                                className="flex-1 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
+                            >
+                                Remove
+                            </button>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
 
             {/* Delete Store OTP Modal */}
             {deleteStoreId && (
@@ -1146,14 +1158,16 @@ export default function SettingsPage() {
                                     <button
                                         disabled={otpLoading}
                                         onClick={async () => {
-                                            setOtpLoading(true);
-                                            const res = await requestStoreDeleteOTP(deleteStoreId);
-                                            setOtpLoading(false);
-                                            if (res.success) {
-                                                setOtpSent(true);
-                                                showToast('success', 'OTP sent to your phone');
-                                            } else {
-                                                showToast('error', res.error || 'Failed to send OTP');
+                                            if (deleteStoreId) {
+                                                setOtpLoading(true);
+                                                const res = await requestStoreDeleteOTP(deleteStoreId);
+                                                setOtpLoading(false);
+                                                if (res.success) {
+                                                    setOtpSent(true);
+                                                    showToast('success', 'OTP sent to your phone');
+                                                } else {
+                                                    showToast('error', res.error || 'Failed to send OTP');
+                                                }
                                             }
                                         }}
                                         className="flex-1 rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
@@ -1186,13 +1200,15 @@ export default function SettingsPage() {
                                         disabled={deleteOTP.length !== 6 || otpLoading}
                                         onClick={async () => {
                                             setOtpLoading(true);
-                                            const res = await deleteStore(deleteStoreId, deleteOTP);
-                                            setOtpLoading(false);
-                                            if (res.success) {
-                                                setDeleteStoreId(null);
-                                                showToast('success', 'Store deleted successfully');
-                                            } else {
-                                                showToast('error', res.error || 'Invalid OTP code');
+                                            if (deleteStoreId) {
+                                                const res = await deleteStore(deleteStoreId, deleteOTP);
+                                                setOtpLoading(false);
+                                                if (res.success) {
+                                                    setDeleteStoreId(null);
+                                                    showToast('success', 'Store deleted successfully');
+                                                } else {
+                                                    showToast('error', res.error || 'Invalid OTP code');
+                                                }
                                             }
                                         }}
                                         className="flex-1 rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50"
@@ -1204,7 +1220,8 @@ export default function SettingsPage() {
                         )}
                     </div>
                 </div>
-            )}
+            )
+            }
         </div >
     );
 }

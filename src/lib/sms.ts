@@ -1,7 +1,7 @@
 
 export interface SMSConfig {
     provider: 'hubtel' | 'mnotify';
-    whatsappProvider?: 'meta' | 'none';
+    whatsappProvider: 'meta' | 'none';
     hubtel?: {
         clientId: string;
         clientSecret: string;
@@ -40,7 +40,7 @@ import { supabase } from '@/lib/supabase';
 // Local cache
 let smsConfig: SMSConfig = {
     provider: 'hubtel',
-    whatsappProvider: 'meta',
+    whatsappProvider: 'none',
     hubtel: { clientId: '', clientSecret: '', senderId: '' },
     mnotify: { apiKey: '', senderId: '' },
     meta: { accessToken: '', phoneNumberId: '', businessAccountId: '' },
@@ -354,7 +354,7 @@ export const sendDirectMessage = async (phone: string, message: string, channels
     }
 
     // Send WhatsApp
-    if (channels.includes('whatsapp')) {
+    if (channels.includes('whatsapp') && config.whatsappProvider !== 'none') {
         try {
             if (config.meta?.accessToken) {
                 await sendMetaWhatsApp(config, phone, message);
