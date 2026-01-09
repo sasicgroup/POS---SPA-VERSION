@@ -59,8 +59,7 @@ export function useProducts() {
         queryKey: ['products', activeStore?.id],
         queryFn: () => fetchProducts(activeStore!.id),
         enabled: !!activeStore?.id && !activeStore.id.toString().startsWith('temp-'), // Only run if we have a store
-        staleTime: 5 * 60 * 1000, // Consider fresh for 5 minutes
-        gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+        // Use default React Query caching settings
     });
 
     // Mutation for adding a product

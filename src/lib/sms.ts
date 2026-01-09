@@ -61,33 +61,51 @@ export const loadSMSConfigFromDB = async (storeId: string) => {
         .select('sms_config')
         .eq('store_id', storeId);
 
+    if (error) {
+        console.error(`[SMS Config Error] Failed to fetch from DB:`, error);
+        return null;
+    }
+
     const data: any = rawData?.[0];
 
     if (data && data.sms_config) {
+        console.log(`[SMS Config] Successfully loaded config from DB for store: ${storeId}`);
         smsConfig = { ...smsConfig, ...data.sms_config };
         if (typeof window !== 'undefined') {
             localStorage.setItem('sms_config', JSON.stringify(smsConfig));
         }
         return smsConfig;
     }
+    console.warn(`[SMS Config] No config found in DB for store: ${storeId}`);
     return null;
 }
 
 export const getSMSConfig = (): SMSConfig => {
+    // Priority: If we have an active config in memory (already loaded from DB), use it 
+    // to avoid merging with stale localStorage data.
+    if (smsConfig.mnotify?.apiKey || smsConfig.hubtel?.clientId) {
+        return smsConfig;
+    }
+
     if (typeof window !== 'undefined') {
         const stored = localStorage.getItem('sms_config');
         if (stored) {
             try {
-                return { ...smsConfig, ...JSON.parse(stored) };
+                const parsed = JSON.parse(stored);
+                console.log(`[SMS Config] Found config in localStorage. Key starts with: ${parsed.mnotify?.apiKey?.substring(0, 4) || 'none'}`);
+                // Update in-memory cache but keep it synced
+                smsConfig = { ...smsConfig, ...parsed };
+                return smsConfig;
             } catch (e) {
                 console.error("Failed to parse SMS config", e);
             }
         }
     }
+    console.log(`[SMS Config] Using in-memory config. Key starts with: ${smsConfig.mnotify?.apiKey?.substring(0, 4) || 'none'}`);
     return smsConfig;
 };
 
-export const updateSMSConfig = async (config: SMSConfig, storeId?: string) => {
+export const updateSMSConfig = async (config: SMSConfig, storeId?: string): Promise<{ success: boolean; error?: any }> => {
     smsConfig = config;
     if (typeof window !== 'undefined') {
         localStorage.setItem('sms_config', JSON.stringify(config));
@@ -102,8 +120,15 @@ export const updateSMSConfig = async (config: SMSConfig, storeId?: string) => {
                 sms_config: config
             });
 
-        if (error) console.error("Failed to save SMS config to DB", error);
+        if (error) {
+            console.error("Failed to save SMS config to DB", error);
+            return { success: false, error };
+        } else {
+            console.log(`[SMS Config] Successfully saved config to DB for store: ${storeId}`);
+            return { success: true };
+        }
     }
+    return { success: true };
 };
 
 const sendHubtelSMS = async (config: SMSConfig, phone: string, message: string): Promise<boolean> => {
@@ -135,7 +160,8 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
     }
 
     // Revert to the primary Quick SMS endpoint
-    const url = `https://api.mnotify.com/api/sms/quick?key=${config.mnotify.apiKey}`;
+    const apiKey = (config.mnotify.apiKey || '').trim();
+    const url = `https://api.mnotify.com/api/sms/quick?key=${apiKey}`;
 
     // Sanitize and format phone number for Ghana (233)
     let formattedPhone = phone.replace(/\D/g, ''); // Remove non-digits
@@ -317,97 +343,43 @@ export const sendNotification = async (type: 'welcome' | 'sale', data: any) => {
 };
 
 export const sendDirectMessage = async (phone: string, message: string, channels: ('sms' | 'whatsapp')[] = ['sms', 'whatsapp'], storeId?: string): Promise<{ success: boolean; error?: string }> => {
-    const config = getSMSConfig();
+    try {
+        const response = await fetch('/api/sms/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                phone,
+                message,
+                channels,
+                storeId
+            })
+        });
 
-    console.log(`[SMS] Direct Message to ${phone} via ${channels.join(', ')}`);
-
-    let smsSuccess = false;
-    let whatsappSuccess = false;
-    let errorMessage = '';
-
-    // Send SMS
-    if (channels.includes('sms')) {
-        try {
-            if (config.provider === 'hubtel') {
-                if (!config.hubtel?.clientId || !config.hubtel?.clientSecret) {
-                    errorMessage = 'Hubtel credentials not configured';
-                    console.error('[SMS Error]', errorMessage);
-                } else {
-                    smsSuccess = await sendHubtelSMS(config, phone, message);
-                }
-            } else if (config.provider === 'mnotify') {
-                if (!config.mnotify?.apiKey) {
-                    errorMessage = 'mNotify API key not configured';
-                    console.error('[SMS Error]', errorMessage);
-                } else {
-                    smsSuccess = await sendMNotifySMS(config, phone, message);
-                }
-            } else {
-                errorMessage = 'No SMS provider configured';
-            }
-            await logSMS(phone, message, 'sms', smsSuccess ? 'sent' : 'failed', storeId);
-        } catch (e: any) {
-            errorMessage = e.message || 'SMS sending failed';
-            console.error('[SMS Error]', e);
-            await logSMS(phone, message, 'sms', 'failed', storeId);
-        }
+        const data = await response.json();
+        return {
+            success: data.success,
+            error: data.error
+        };
+    } catch (e: any) {
+        console.error('[SMS API Error]', e);
+        return {
+            success: false,
+            error: e.message || 'Failed to send message'
+        };
     }
-
-    // Send WhatsApp
-    if (channels.includes('whatsapp') && config.whatsappProvider !== 'none') {
-        try {
-            if (config.meta?.accessToken) {
-                await sendMetaWhatsApp(config, phone, message);
-                whatsappSuccess = true;
-                await logSMS(phone, message, 'whatsapp', 'sent', storeId);
-            } else {
-                console.warn('[WhatsApp] Meta credentials not configured');
-            }
-        } catch (e: any) {
-            console.error('[WhatsApp Error]', e);
-            await logSMS(phone, message, 'whatsapp', 'failed', storeId);
-        }
-    }
-
-    const success = smsSuccess || whatsappSuccess;
-    return {
-        success,
-        error: success ? undefined : (errorMessage || 'Failed to send message')
-    };
 };
 
-export const getSMSBalance = async (): Promise<number> => {
-    const config = getSMSConfig();
+export const getSMSBalance = async (storeId?: string): Promise<number> => {
+    if (!storeId) return 0;
 
-    if (config.provider === 'mnotify' && config.mnotify?.apiKey) {
-        const apiKey = config.mnotify.apiKey.trim();
-        try {
-            const res = await fetch(`https://api.mnotify.com/api/balance/sms?key=${apiKey}`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (!res.ok) {
-                console.error(`mNotify Balance Check Failed: ${res.status} ${res.statusText}`);
-                if (res.status === 401) console.error("Please verify your mNotify API Key.");
-                return 0;
-            }
-
-            const data = await res.json();
-            // mNotify returns { balance: "10.50", ... } or similar
-            return parseFloat(data?.balance || '0');
-        } catch (e) {
-            console.error("Failed to fetch mNotify balance", e);
-            return 0;
-        }
-    }
-
-    if (config.provider === 'hubtel') {
-        // Hubtel balance check implementation deferred
+    try {
+        const response = await fetch(`/api/sms/balance?storeId=${storeId}`);
+        const data = await response.json();
+        return data.balance || 0;
+    } catch (e) {
+        console.error('Failed to fetch SMS balance', e);
         return 0;
     }
-
-    return 0;
 };

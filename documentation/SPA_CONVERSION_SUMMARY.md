@@ -34,20 +34,23 @@ This Store Management System has been successfully converted to a **Single Page 
 
 ## Current Architecture
 
-### Client-Side Only
+### Hybrid Application (Server + Client)
 ✅ All pages are client components (`'use client'`)
 ✅ Authentication via Supabase (client-side)
 ✅ Data fetching via Supabase client
 ✅ State management with React Context
 ✅ Caching with React Query
+✅ **SMS functionality via Next.js API routes (server-side)**
 
-### No Server Dependencies
-❌ No API routes
-❌ No Server Actions
-❌ No Server Components
-❌ No dynamic rendering
+### Server-Side Features (Added for SMS)
+❌ API Routes added for SMS sending
+❌ External API calls moved to server-side
+❌ CORS issues resolved
 
 ## Build & Deployment
+- **No longer static export** - requires Node.js server
+- Deploy to Vercel, Netlify Functions, or traditional hosting
+- SMS will work properly now
 
 ### Development
 ```bash

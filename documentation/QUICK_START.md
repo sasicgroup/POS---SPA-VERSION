@@ -27,27 +27,24 @@ const supabaseKey = 'your-new-anon-key';
 3. Run this file:
    - `database_setup.sql`
 
-## Step 3: Rebuild
+## Step 3: Build & Deploy
+
+**Note**: This application now uses Next.js API routes for SMS functionality, so it's no longer a pure static SPA. Deploy to Vercel, Netlify, or any Node.js hosting.
 
 ```bash
 npm run build
+npm run start  # For production
 ```
-
-This creates the `/out` folder with your production files.
-
-## Step 4: Deploy
 
 ### Quick Deploy to Vercel
 ```bash
 npx vercel --prod
 ```
 
-### Quick Deploy to Netlify
+### Quick Deploy to Netlify (with functions)
 ```bash
-npx netlify-cli deploy --prod --dir=out
+npx netlify-cli deploy --prod --dir=.next
 ```
-
-### Manual Deploy
 Upload the `/out` folder to any static hosting service.
 
 ## Step 5: Test

@@ -51,7 +51,7 @@ export default function CommunicationPage() {
             setConfig(getSMSConfig());
 
             // Fetch Balance
-            const bal = await getSMSBalance();
+            const bal = await getSMSBalance(activeStore.id);
             setBalance(bal);
 
             // Fetch Recipient Count (Total Customers)

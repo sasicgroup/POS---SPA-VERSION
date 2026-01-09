@@ -74,11 +74,6 @@ export default function SettingsPage() {
     const [editingType, setEditingType] = useState<string | null>(null);
     const [editingCategory, setEditingCategory] = useState<string | null>(null);
 
-    // SMS Testing State
-    const [testSmsPhone, setTestSmsPhone] = useState('');
-    const [testSmsMessage, setTestSmsMessage] = useState('Hello! This is a test message from your Store Management Software.');
-    const [isTestingSms, setIsTestingSms] = useState(false);
-
     useEffect(() => {
         setSmsConfig(getSMSConfig());
         if (activeStore) {
@@ -93,7 +88,6 @@ export default function SettingsPage() {
                 phone: user.phone || '',
                 username: user.username || ''
             });
-            setTestSmsPhone(user.phone || '');
         }
     }, [activeStore, user]);
 
@@ -118,27 +112,6 @@ export default function SettingsPage() {
         }
     };
 
-    const handleSendTestSMS = async () => {
-        if (!testSmsPhone) {
-            showToast('error', 'Please enter a phone number');
-            return;
-        }
-
-        setIsTestingSms(true);
-        try {
-            const result = await sendDirectMessage(testSmsPhone, testSmsMessage, ['sms'], activeStore?.id);
-            if (result.success) {
-                showToast('success', 'Test SMS sent successfully!');
-            } else {
-                showToast('error', `Failed to send SMS: ${result.error || 'Unknown error'}`);
-            }
-        } catch (e: any) {
-            showToast('error', `Error: ${e.message}`);
-        } finally {
-            setIsTestingSms(false);
-        }
-    };
-
     const handleSave = async () => {
         if (!activeStore?.id || activeStore.id.toString().startsWith('temp-')) {
             showToast('error', 'Cannot save settings. Invalid or temporary store ID. Please reload.');
@@ -149,7 +122,11 @@ export default function SettingsPage() {
         try {
             // Save SMS Config
             if (smsConfig && activeStore?.id) {
-                await updateSMSConfig(smsConfig, activeStore.id);
+                const smsRes = await updateSMSConfig(smsConfig, activeStore.id);
+                if (!smsRes.success) {
+                    showToast('error', `Failed to save SMS Configuration: ${smsRes.error?.message || 'Unknown error'}`);
+                    // Optionally return early if SMS config is critical
+                }
             }
 
             // Save Store Settings
@@ -984,52 +961,7 @@ export default function SettingsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Test SMS Section */}
-                                    <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-6">
-                                        <div className="mb-4">
-                                            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                                <MessageSquare className="h-5 w-5 text-indigo-500" />
-                                                Test SMS Delivery
-                                            </h3>
-                                            <p className="text-sm text-slate-500">Verify your configuration is working before enabling features like OTP.</p>
-                                        </div>
 
-                                        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-900/40 space-y-4">
-                                            <div className="grid gap-4 md:grid-cols-2">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase">Receiver Phone Number</label>
-                                                    <input
-                                                        type="text"
-                                                        value={testSmsPhone}
-                                                        onChange={(e) => setTestSmsPhone(e.target.value)}
-                                                        placeholder="e.g. 0544146190"
-                                                        className="w-full rounded-lg border border-indigo-200 bg-white py-2 px-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-indigo-800 dark:bg-slate-900 dark:text-white"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase">Test Message</label>
-                                                    <input
-                                                        type="text"
-                                                        value={testSmsMessage}
-                                                        onChange={(e) => setTestSmsMessage(e.target.value)}
-                                                        className="w-full rounded-lg border border-indigo-200 bg-white py-2 px-3 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-indigo-800 dark:bg-slate-900 dark:text-white"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={handleSendTestSMS}
-                                                disabled={isTestingSms}
-                                                className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-bold text-white transition-all hover:bg-indigo-700 disabled:opacity-50"
-                                            >
-                                                {isTestingSms ? (
-                                                    <RotateCcw className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <MessageSquare className="h-4 w-4" />
-                                                )}
-                                                {isTestingSms ? 'Sending...' : 'Send Test SMS'}
-                                            </button>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 

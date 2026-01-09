@@ -530,7 +530,8 @@ export default function SalesPage() {
                 if (!existingCustomer) {
                     await sendNotification('welcome', {
                         customerName: freshCust.name,
-                        customerPhone: customerPhone
+                        customerPhone: customerPhone,
+                        storeId: activeStore.id
                     });
                 }
 
