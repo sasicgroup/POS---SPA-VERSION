@@ -383,7 +383,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             otp_expiry: expiry.toISOString()
         }).eq('id', employee.id);
 
-        await sendDirectMessage(employee.phone, `Your new OTP is ${code}.`, ['sms'], employee.store_id);
+        // Send OTP only if employee has a valid store_id
+        if (employee.store_id) {
+            await sendDirectMessage(employee.phone, `Your new OTP is ${code}.`, ['sms'], employee.store_id);
+        } else {
+            console.warn('[Auth] Cannot send OTP: employee has no store_id', employee.id);
+        }
         return true;
     };
 

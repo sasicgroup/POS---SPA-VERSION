@@ -20,15 +20,39 @@ const sendHubtelSMS = async (config: SMSConfig, phone: string, message: string):
         return false;
     }
 
-    const simplePhone = phone.replace(/\D/g, '');
+    const simplePhone = phone.replace(/\D/g, ''); // Remove non-digits
+    // Format for international dialing (without +)
+    let formattedPhone = simplePhone;
+    if (formattedPhone.startsWith('0') && formattedPhone.length === 10) {
+        // Ghana format: 0XXXXXXXXX -> 233XXXXXXXXX
+        formattedPhone = '233' + formattedPhone.substring(1);
+    } else if (!formattedPhone.startsWith('233') && formattedPhone.length === 9) {
+        // Just add country code
+        formattedPhone = '233' + formattedPhone;
+    }
 
-    const url = `https://smsc.hubtel.com/v1/messages/send?clientsecret=${config.hubtel.clientSecret}&clientid=${config.hubtel.clientId}&from=${encodeURIComponent(config.hubtel.senderId)}&to=${simplePhone}&content=${encodeURIComponent(message)}`;
+    console.log('[Hubtel] Sending to phone:', formattedPhone, 'Original:', phone);
+
+    // Hubtel V1 Endpoint
+    const url = `https://smsc.hubtel.com/v1/messages/send?clientsecret=${config.hubtel.clientSecret}&clientid=${config.hubtel.clientId}&from=${encodeURIComponent(config.hubtel.senderId)}&to=${formattedPhone}&content=${encodeURIComponent(message)}`;
+
+    console.log('[Hubtel] Request URL (masked):', url.replace(/clientsecret=[^&]*/, 'clientsecret=***'));
 
     try {
         const response = await fetch(url, { method: 'GET' });
         const data = await response.json();
-        console.log('[Hubtel Response]', data);
-        return response.ok;
+        console.log('[Hubtel Response]', JSON.stringify(data, null, 2));
+        console.log('[Hubtel] HTTP Status:', response.status, response.ok);
+
+        // Hubtel success indicators - be more strict
+        const isSuccess = response.ok && data.Status === 0 && data.Message?.toLowerCase().includes('success');
+        console.log('[Hubtel] Success determination:', isSuccess, 'Status:', data.Status, 'Message:', data.Message);
+
+        if (!isSuccess) {
+            console.error('[Hubtel] Failed with status:', data.Status, 'Message:', data.Message);
+        }
+
+        return isSuccess;
     } catch (e) {
         console.error('[Hubtel Error]', e);
         return false;
@@ -44,12 +68,17 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
     const apiKey = (config.mnotify.apiKey || '').trim();
     const url = `https://api.mnotify.com/api/sms/quick?key=${apiKey}`;
 
-    let formattedPhone = phone.replace(/\D/g, '');
+    // Enhanced phone number formatting for Ghana
+    let formattedPhone = phone.replace(/\D/g, ''); // Remove non-digits
     if (formattedPhone.startsWith('0')) {
         formattedPhone = '233' + formattedPhone.substring(1);
     } else if (!formattedPhone.startsWith('233') && formattedPhone.length === 9) {
         formattedPhone = '233' + formattedPhone;
+    } else if (!formattedPhone.startsWith('233') && formattedPhone.length === 10 && formattedPhone.startsWith('0')) {
+        formattedPhone = '233' + formattedPhone.substring(1);
     }
+
+    console.log('[mNotify] Sending to formatted phone:', formattedPhone, 'Original:', phone);
 
     const body = {
         recipient: [formattedPhone],
@@ -59,6 +88,8 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
         schedule_date: "",
         sms_type: "otp"
     };
+
+    console.log('[mNotify] Request body:', JSON.stringify(body, null, 2));
 
     try {
         const response = await fetch(url, {
@@ -71,8 +102,18 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
         });
 
         const data = await response.json();
-        console.log('[mNotify Response]', data);
-        return data.code === '2000' || data.status === 'success' || data.code === 2000;
+        console.log('[mNotify Response]', JSON.stringify(data, null, 2));
+        console.log('[mNotify] HTTP Status:', response.status);
+
+        // mNotify success codes - be more strict
+        const isSuccess = response.ok && (data.code === '2000' || data.code === 2000) && data.status !== 'error';
+        console.log('[mNotify] Success determination:', isSuccess, 'Code:', data.code, 'Status:', data.status);
+
+        if (!isSuccess) {
+            console.error('[mNotify] Failed with code:', data.code, 'Status:', data.status, 'Message:', data.message);
+        }
+
+        return isSuccess;
     } catch (e) {
         console.error('[mNotify Error]', e);
         return false;
@@ -125,9 +166,9 @@ export async function POST(request: NextRequest) {
 
         const { phone, message, channels, storeId } = body;
 
-        if (!phone || !message || !storeId || !channels) {
+        if (!phone || !message || !channels) {
             console.error('[SMS API] Missing required fields:', { phone: !!phone, message: !!message, storeId: !!storeId, channels: !!channels });
-            return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ success: false, error: 'Missing required fields: phone, message, and channels are required' }, { status: 400 });
         }
 
         if (!Array.isArray(channels)) {
@@ -141,19 +182,28 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Phone number is required' }, { status: 400 });
         }
 
-        // Load SMS config from DB
-        const { data: rawData, error } = await supabase
-            .from('app_settings')
-            .select('sms_config')
-            .eq('store_id', storeId);
+        // If no storeId provided, try to use a default or skip config loading
+        let config: SMSConfig | null = null;
+        if (storeId) {
+            // Load SMS config from DB
+            const { data: rawData, error } = await supabase
+                .from('app_settings')
+                .select('sms_config')
+                .eq('store_id', storeId);
 
-        if (error || !rawData?.[0]?.sms_config) {
-            console.error('[SMS API] Config load error:', error, 'Data:', rawData);
-            return NextResponse.json({ success: false, error: 'SMS config not found' }, { status: 400 });
+            if (error || !rawData?.[0]?.sms_config) {
+                console.error('[SMS API] Config load error:', error, 'Data:', rawData);
+                return NextResponse.json({ success: false, error: 'SMS config not found for store' }, { status: 400 });
+            }
+
+            config = rawData[0].sms_config;
+            console.log('[SMS API] Loaded config:', { provider: config.provider, hasHubtel: !!config.hubtel?.clientId, hasMnotify: !!config.mnotify?.apiKey });
+        } else {
+            // Try to load from a default store or use basic config
+            console.warn('[SMS API] No storeId provided, attempting to load default config');
+            // For now, return error if no storeId - we can enhance this later
+            return NextResponse.json({ success: false, error: 'Store ID is required for SMS configuration' }, { status: 400 });
         }
-
-        const config: SMSConfig = rawData[0].sms_config;
-        console.log('[SMS API] Loaded config:', { provider: config.provider, hasHubtel: !!config.hubtel?.clientId, hasMnotify: !!config.mnotify?.apiKey });
 
         let smsSuccess = false;
         let whatsappSuccess = false;

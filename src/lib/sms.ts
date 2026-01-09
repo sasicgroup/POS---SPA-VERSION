@@ -343,6 +343,8 @@ export const sendNotification = async (type: 'welcome' | 'sale', data: any) => {
 };
 
 export const sendDirectMessage = async (phone: string, message: string, channels: ('sms' | 'whatsapp')[] = ['sms', 'whatsapp'], storeId?: string): Promise<{ success: boolean; error?: string }> => {
+    console.log('[SMS] sendDirectMessage called with:', { phone, message: message.substring(0, 50) + '...', channels, storeId });
+
     try {
         const response = await fetch('/api/sms/send', {
             method: 'POST',
@@ -358,6 +360,7 @@ export const sendDirectMessage = async (phone: string, message: string, channels
         });
 
         const data = await response.json();
+        console.log('[SMS] API response:', data);
         return {
             success: data.success,
             error: data.error
