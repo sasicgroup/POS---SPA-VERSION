@@ -105,10 +105,10 @@ export const updateSMSConfig = async (config: SMSConfig, storeId?: string) => {
     }
 };
 
-const sendHubtelSMS = async (config: SMSConfig, phone: string, message: string) => {
+const sendHubtelSMS = async (config: SMSConfig, phone: string, message: string): Promise<boolean> => {
     if (!config.hubtel?.clientId || !config.hubtel?.clientSecret || !config.hubtel?.senderId) {
         console.warn('Hubtel credentials missing');
-        return;
+        return false;
     }
 
     const simplePhone = phone.replace(/\D/g, ''); // Remove non-digits
@@ -120,15 +120,17 @@ const sendHubtelSMS = async (config: SMSConfig, phone: string, message: string) 
         const response = await fetch(url, { method: 'GET' });
         const data = await response.json();
         console.log('[Hubtel Response]', data);
+        return response.ok;
     } catch (e) {
         console.error('[Hubtel Error]', e);
+        return false;
     }
 };
 
-const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string) => {
+const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string): Promise<boolean> => {
     if (!config.mnotify?.apiKey || !config.mnotify?.senderId) {
         console.warn('mNotify credentials missing');
-        return;
+        return false;
     }
 
     const url = `https://api.mnotify.com/api/sms/quick?key=${config.mnotify.apiKey}`;
@@ -161,8 +163,10 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
 
         const data = await response.json();
         console.log('[mNotify Response]', data);
+        return data.code === '2000' || data.status === 'success';
     } catch (e) {
         console.error('[mNotify Error]', e);
+        return false;
     }
 };
 
@@ -323,16 +327,14 @@ export const sendDirectMessage = async (phone: string, message: string, channels
                     errorMessage = 'Hubtel credentials not configured';
                     console.error('[SMS Error]', errorMessage);
                 } else {
-                    await sendHubtelSMS(config, phone, message);
-                    smsSuccess = true;
+                    smsSuccess = await sendHubtelSMS(config, phone, message);
                 }
             } else if (config.provider === 'mnotify') {
                 if (!config.mnotify?.apiKey) {
                     errorMessage = 'mNotify API key not configured';
                     console.error('[SMS Error]', errorMessage);
                 } else {
-                    await sendMNotifySMS(config, phone, message);
-                    smsSuccess = true;
+                    smsSuccess = await sendMNotifySMS(config, phone, message);
                 }
             } else {
                 errorMessage = 'No SMS provider configured';

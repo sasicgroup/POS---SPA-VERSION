@@ -315,7 +315,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 let smsResult: { success: boolean; error?: string } = { success: false, error: 'SMS not sent' };
                 if (storeId) {
                     await loadSMSConfigFromDB(storeId);
-                    smsResult = await sendDirectMessage(employee.phone, `Your OTP is ${code}. Valid for 5 minutes.`);
+                    smsResult = await sendDirectMessage(employee.phone, `Your verification code is ${code}.`);
                 }
 
                 return {
@@ -712,7 +712,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Send OTP
             await loadSMSConfigFromDB(storeId);
-            const smsResult = await sendDirectMessage(user.phone, `Your store deletion OTP is ${code}. Valid for 5 minutes.`);
+            const smsResult = await sendDirectMessage(user.phone, `Your verification code is ${code}.`);
 
             if (!smsResult.success) {
                 return { success: false, error: smsResult.error || 'Failed to send OTP' };
