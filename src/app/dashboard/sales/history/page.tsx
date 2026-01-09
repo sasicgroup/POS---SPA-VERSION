@@ -42,7 +42,7 @@ export default function SalesHistoryPage() {
     }, [activeStore?.id]);
 
     const fetchSales = async () => {
-        if (!activeStore?.id) return;
+        if (!activeStore?.id || activeStore.id.toString().startsWith('temp-')) return;
         const { data, error } = await supabase
             .from('sales')
             .select(`

@@ -115,7 +115,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     }, [activeStore?.id]);
 
     const fetchProducts = async (retry = true) => {
-        if (!activeStore?.id) {
+        if (!activeStore?.id || activeStore.id.toString().startsWith('temp-')) {
             setIsLoading(false);
             return;
         }

@@ -43,7 +43,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }, [activeStore?.id]);
 
     const fetchNotifications = async () => {
-        if (!activeStore?.id) return;
+        if (!activeStore?.id || activeStore.id.toString().startsWith('temp-')) return;
 
         setIsLoading(true);
         try {
