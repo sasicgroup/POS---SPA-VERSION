@@ -216,6 +216,13 @@ WHERE NOT EXISTS (SELECT 1 FROM public.stores);
 -- Migrate 'associate' roles to 'staff'
 UPDATE public.employees SET role = 'staff' WHERE role = 'associate';
 
+-- Ensure initial Admin user exists
+INSERT INTO public.employees (store_id, name, role, pin, username)
+SELECT id, 'Admin User', 'owner', '1234', 'admin'
+FROM public.stores
+WHERE name = 'My Awesome Store'
+AND NOT EXISTS (SELECT 1 FROM public.employees WHERE username = 'admin');
+
 -- Backfill Employee Access
 insert into public.employee_access (employee_id, store_id, role)
 select id, store_id, role from public.employees

@@ -109,7 +109,7 @@ Then visit `http://localhost:8000` (or the port shown)
 
 - [ ] Update Supabase credentials
 - [ ] Run database migrations on new Supabase project
-- [ ] Test login functionality
+- [ ] Test login functionality (Default: PIN `1234` or select "Admin User")
 - [ ] Verify all pages load correctly
 - [ ] Test POS/Sales functionality
 - [ ] Check payment integrations (Hubtel, Paystack)
