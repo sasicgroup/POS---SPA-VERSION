@@ -133,8 +133,8 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
         return false;
     }
 
-    // Use the official Quick SMS endpoint
-    const url = `https://api.mnotify.com/api/sms/quick?key=${config.mnotify.apiKey}`;
+    // Switch to the 'send' endpoint which some accounts require for 'Normal' vs 'Quick' delivery
+    const url = `https://api.mnotify.com/api/sms/send?key=${config.mnotify.apiKey}`;
 
     // Sanitize and format phone number for Ghana (233)
     let formattedPhone = phone.replace(/\D/g, ''); // Remove non-digits
@@ -146,10 +146,11 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
 
     const body = {
         recipient: [formattedPhone],
-        sender: config.mnotify.senderId.substring(0, 11), // Ghana telcos limit to 11 chars
+        sender: config.mnotify.senderId.substring(0, 11),
         message: message,
         is_schedule: false,
-        schedule_date: ""
+        schedule_date: "",
+        sms_type: message.toLowerCase().includes('code') ? 'otp' : 'transactional'
     };
 
     try {
@@ -163,7 +164,7 @@ const sendMNotifySMS = async (config: SMSConfig, phone: string, message: string)
         });
 
         const data = await response.json();
-        console.log('[mNotify Response]', data);
+        console.log('[mNotify Standard Response]', data);
 
         // mNotify success code is 2000
         return data.code === '2000' || data.status === 'success' || data.code === 2000;
